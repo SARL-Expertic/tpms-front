@@ -38,34 +38,39 @@ export default function TickitsTable() {
     fetchTickets()
       .then((res) => {
         const transformed = res.data.map((ticket: any) => ({
-          id: ticket.id,
-          type: entofr_Type(ticket.type),
-          status: entofr_status(ticket.status),
-          note: ticket.notes,
-          model: ticket.tpe?.model ?? "non",
-          brand: ticket.tpe?.manufacturer ?? "brand",
+          id: ticket?.id ?? '',
+          type: entofr_Type(ticket?.type ?? ''),
+          status: entofr_status(ticket?.status ?? ''),
+          note: ticket?.notes ?? '',
+          model: ticket?.tpe?.model ?? 'non',
+          brand: ticket?.tpe?.manufacturer ?? 'brand',
+          
           tpe: {
-            serialNumber: ticket.tpe?.serialNumber ?? "N/A",
-            model: ticket.tpe?.model ?? "non",
-            brand: ticket.tpe?.manufacturer ?? "brand",
+            serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
+            model: ticket?.tpe?.model ?? 'non',
+            brand: ticket?.tpe?.manufacturer ?? 'brand',
           },
-
+          
           client: {
-            id: ticket.client.id,
-            name: ticket.client.commercialName,
-            brand: ticket.client.brand,
-            phoneNumber: ticket.client.phoneNumber,
-            mobileNumber: ticket.client.mobileNumber || '-',
-            
+            id: ticket?.client?.id ?? '',
+            name: ticket?.client?.commercialName ?? 'N/A',
+            brand: ticket?.client?.brand ?? 'N/A',
+            phoneNumber: ticket?.client?.phoneNumber ?? 'N/A',
+            mobileNumber: ticket?.client?.mobileNumber ?? '-',
+          
             location: {
-              wilaya: ticket.client.location?.wilaya || 'N/A',
-              daira: ticket.client.location?.daira || 'N/A',
-              address: ticket.client.location?.address || 'N/A',
+              wilaya: ticket?.client?.location?.wilaya ?? 'N/A',
+              daira: ticket?.client?.location?.daira ?? 'N/A',
+              address: ticket?.client?.location?.address ?? 'N/A',
             },
-
           },
-          requestDate: ticket.requestDate ? format(new Date(ticket.requestDate), "dd/MM/yyyy HH:mm") : "",
-          completedDate: ticket.completedDate ? format(new Date(ticket.completedDate), "dd/MM/yyyy HH:mm") : "",
+          
+          requestDate: ticket?.requestDate
+            ? format(new Date(ticket.requestDate), "dd/MM/yyyy HH:mm")
+            : "",
+          completedDate: ticket?.completedDate
+            ? format(new Date(ticket.completedDate), "dd/MM/yyyy HH:mm")
+            : "",          
         }))
         setTickets(transformed)
         setLoading(false)

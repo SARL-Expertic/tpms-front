@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { createInterventionTicket, createNetworkCheckTicket } from "@/app/api/tickets"
+import { createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchTPE } from "@/app/api/tickets"
 
 
 // Define types for our specific ticket type data
@@ -65,12 +65,12 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
 
 
-  const [unblockingData, setUnblockingData] = useState<UnblockingData>({
-    blockedReason: '',
-    previousAttempts: '',
-    requiredAction: '',
-    tpes: []
+  const [unblockingData, setUnblockingData] = useState({
+    notes: "",
+    blockedReason: "",
+    tpes: [] as { id: number }[],   // only ids
   });
+  
 
  const [interventionData, setInterventionData] = useState<InterventionData>({
           problemCategory: '',
@@ -133,29 +133,43 @@ const handleQuantityChange = (index: number, change: number) => {
   const [wilaya, setWilaya] = useState("");
   const [daira, setDaira] = useState("");
 
+  const [tpes, setTpes] = useState<any[]>([]);
 
-  const handleAddTpe = () => {
-    setUnblockingData(prev => ({
-      ...prev,
-      tpes: [...prev.tpes, { brand: '', model: '', quantity: '1' }]
-    }));
-  };
+  useEffect(() => {
+    fetchTPE()
+      .then((res) => {
+        setTpes(res.data.tpes || []); // <-- extract the array
+      })
+      .catch((err) => {
+        console.error("Error fetching TPEs:", err);
+        setTpes([]);
+      });
+  }, []);
+  
 
-  const handleRemoveTpe = (index: number) => {
-    setUnblockingData(prev => ({
-      ...prev,
-      tpes: prev.tpes.filter((_, i) => i !== index)
-    }));
-  };
 
-  const handleTpeChange = (index: number, field: string, value: string) => {
-    setUnblockingData(prev => ({
-      ...prev,
-      tpes: prev.tpes.map((tpe, i) =>
-        i === index ? { ...tpe, [field]: value } : tpe
-      )
-    }));
-  };
+  // const handleAddTpe = () => {
+  //   setUnblockingData(prev => ({
+  //     ...prev,
+  //     tpes: [...prev.tpes, { brand: '', model: '', quantity: '1' }]
+  //   }));
+  // };
+
+  // const handleRemoveTpe = (index: number) => {
+  //   setUnblockingData(prev => ({
+  //     ...prev,
+  //     tpes: prev.tpes.filter((_, i) => i !== index)
+  //   }));
+  // };
+
+  // const handleTpeChange = (index: number, field: string, value: string) => {
+  //   setUnblockingData(prev => ({
+  //     ...prev,
+  //     tpes: prev.tpes.map((tpe, i) =>
+  //       i === index ? { ...tpe, [field]: value } : tpe
+  //     )
+  //   }));
+  // };
 
 
   
@@ -181,7 +195,7 @@ const handleQuantityChange = (index: number, change: number) => {
  // Validation
 const validateForm = (): boolean => {
   const newErrors: Record<string, string> = {}
-
+  if (activeTab !== "unblocking"){
   if (!phone) {
     newErrors.phone = "Le numéro de téléphone est obligatoire."
   } else if (!/^\+?\d{8,15}$/.test(phone)) {
@@ -190,6 +204,14 @@ const validateForm = (): boolean => {
   if (!description) newErrors.description = "La description est obligatoire."
   if (!wilaya) newErrors.wilaya = "La wilaya est obligatoire."
   if (!daira) newErrors.daira = "La daira est obligatoire."
+}
+  if (activeTab === "unblocking") {
+    if (!unblockingData.blockedReason)
+      newErrors.blockedReason = "La raison du blocage est obligatoire.";
+    if (unblockingData.tpes.length === 0)
+      newErrors.tpes = "Veuillez ajouter au moins un TPE.";
+  }
+
 
   setErrors(newErrors)
   return Object.keys(newErrors).length === 0
@@ -204,8 +226,7 @@ const resetForm = () => {
   setAddress('')
   setUnblockingData({
     blockedReason: '',
-    previousAttempts: '',
-    requiredAction: '',
+    notes: '',
     tpes: []
   })
   setInterventionData({
@@ -251,6 +272,13 @@ else if (activeTab === "intervention") {
         problem_description: interventionData.problemCategory + " - " + interventionData.problemType
       }); // ✅ now handled
     }
+else {
+  await createDeblockingTicket({
+    notes: description,
+    deblockingType: unblockingData.blockedReason,
+    tpes: unblockingData.tpes, // already in {id: number} format
+  });
+}
     resetForm()
     setSuccessMessage("✅ Ticket créé avec succès !")
     return false
@@ -457,125 +485,144 @@ else if (activeTab === "intervention") {
 
                 </div>
 
-                {/* TPE Management Section */}
-                <div className="border-t  pt-6 mt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-medium text-lg">Gestion des TPE</h3>
-                    <Button
-                      type="button"
-                      onClick={() => handleAddTpe()}
-                      className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center gap-2"
-                    >
-                      <FaPlus className="text-sm " />
-                      Ajouter un TPE
-                    </Button>
-                  </div>
+{/* TPE Management Section */}
+<div className="border-t pt-6 mt-6">
+  <div className="flex justify-between items-center mb-4">
+    <h3 className="font-medium text-lg">Gestion des TPE</h3>
+  </div>
 
-                  {unblockingData.tpes && unblockingData.tpes.length > 0 ? (
-                    <div className="space-y-4">
-                      {unblockingData.tpes.map((tpe, index) => (
-                        <div key={index} className="p-4 border rounded-lg  relative">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveTpe(index)}
-                            className="absolute top-3 right-3 text-red-500 hover:text-red-700"
-                          >
-                            <FaTrash className="text-sm" />
-                          </button>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {/* Marque */}
+    <div className="flex flex-col">
+      <label className="text-sm font-medium mb-2">Marque :</label>
+      <Select
+        onValueChange={(value) => {
+          setUnblockingData((prev) => ({
+            ...prev,
+            selectedBrand: value,
+            selectedModel: "",
+            selectedSerial: "",
+          }));
+        }}
+        value={unblockingData.selectedBrand || ""}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Sélectionnez une marque" />
+        </SelectTrigger>
+        <SelectContent>
+          {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
+            <SelectItem key={brand} value={brand}>
+              {brand}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
 
-                          <h4 className="font-medium mb-3">TPE #{index + 1}</h4>
+    {/* Modèle */}
+    <div className="flex flex-col">
+      <label className="text-sm font-medium mb-2">Modèle :</label>
+      <Select
+        onValueChange={(value) => {
+          setUnblockingData((prev) => ({
+            ...prev,
+            selectedModel: value,
+            selectedSerial: "",
+          }));
+        }}
+        value={unblockingData.selectedModel || ""}
+        disabled={!unblockingData.selectedBrand}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Sélectionnez un modèle" />
+        </SelectTrigger>
+        <SelectContent>
+          {tpes
+            .filter((t) => t.manufacturer === unblockingData.selectedBrand)
+            .map((t) => t.model)
+            .filter((v, i, arr) => arr.indexOf(v) === i) // unique
+            .map((model) => (
+              <SelectItem key={model} value={model}>
+                {model}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+    </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="flex flex-col">
-                              <label className="text-sm font-medium mb-2">Marque :</label>
-                              <Select
-                                onValueChange={(value) => handleTpeChange(index, 'brand', value)}
-                                value={tpe.brand}
-                              >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Sélectionnez une marque" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="INGENICO">INGENICO</SelectItem>
-                                  <SelectItem value="PAX">PAX</SelectItem>
-                                  <SelectItem value="VERIFONE">VERIFONE</SelectItem>
-                                  <SelectItem value="NEWPOS">NEWPOS</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
+    {/* Numéro de Série */}
+   {/* Numéro de Série */}
+<div className="flex flex-col">
+  <label className="text-sm font-medium mb-2">N° de Série :</label>
+  <Select
+    onValueChange={(value) => {
+      const selected = tpes.find((t) => String(t.id) === value);
+      if (!selected) return;
 
-                            <div className="flex flex-col">
-                              <label className="text-sm font-medium mb-2">Modèle :</label>
-                              <Select
-                                onValueChange={(value) => handleTpeChange(index, 'model', value)}
-                                value={tpe.model}
-                              >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Sélectionnez un modèle" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {!tpe.brand && (
-                                    <SelectItem key="no-brand" value="no-brand" disabled>
-                                      Sélectionnez d'abord une marque
-                                    </SelectItem>
-                                  )}
-                                  {tpe.brand === "INGENICO" && (
-                                    <>
-                                      <SelectItem key="iCT250" value="iCT250">iCT250</SelectItem>
-                                      <SelectItem key="iWL250" value="iWL250">iWL250</SelectItem>
-                                      <SelectItem key="iSC250" value="iSC250">iSC250</SelectItem>
-                                      <SelectItem key="iPP320" value="iPP320">iPP320</SelectItem>
-                                    </>
-                                  )}
-                                  {tpe.brand === "PAX" && (
-                                    <>
-                                      <SelectItem key="A920" value="A920">A920</SelectItem>
-                                      <SelectItem key="A920Pro" value="A920Pro">A920 Pro</SelectItem>
-                                      <SelectItem key="A800" value="A800">A800</SelectItem>
-                                      <SelectItem key="S300" value="S300">S300</SelectItem>
-                                    </>
-                                  )}
-                                  {tpe.brand === "VERIFONE" && (
-                                    <>
-                                      <SelectItem key="VX520" value="VX520">VX520</SelectItem>
-                                      <SelectItem key="VX680" value="VX680">VX680</SelectItem>
-                                      <SelectItem key="VX820" value="VX820">VX820</SelectItem>
-                                      <SelectItem key="e355" value="e355">e355</SelectItem>
-                                    </>
-                                  )}
-                                  {tpe.brand === "NEWPOS" && (
-                                    <>
-                                      <SelectItem key="N86" value="N86">N86</SelectItem>
-                                      <SelectItem key="N5" value="N5">N5</SelectItem>
-                                      <SelectItem key="N910" value="N910">N910</SelectItem>
-                                    </>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
+      setUnblockingData((prev) => ({
+        ...prev,
+        selectedSerial: selected.serialNumber, // ✅ real SN
+        tpes: [...prev.tpes, { id: selected.id }], // ✅ real ID
+      }));
+    }}
+    value={unblockingData.selectedSerial || ""}
+    disabled={!unblockingData.selectedModel}
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="Sélectionnez un numéro de série" />
+    </SelectTrigger>
+    <SelectContent>
+      {tpes
+        .filter(
+          (t) =>
+            t.manufacturer === unblockingData.selectedBrand &&
+            t.model === unblockingData.selectedModel
+        )
+        .map((t) => (
+          <SelectItem key={t.id} value={String(t.id)}>
+            {t.serialNumber}
+          </SelectItem>
+        ))}
+    </SelectContent>
+  </Select>
+</div>
 
-                            <div className="flex flex-col">
-                              <label className="text-sm font-medium mb-2">Quantité :</label>
-                              <Input
-                                type="number"
-                                min="1"
-                                placeholder="1"
-                                value={tpe.quantity}
-                                onChange={(e) => handleTpeChange(index, 'quantity', e.target.value)}
-                                className="w-full"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center p-6 border-2 border-dashed rounded-lg ">
-                      <FaInfoCircle className="mx-auto text-gray-400 text-2xl mb-2" />
-                      <p className="text-gray-500">Aucun TPE ajouté. Cliquez sur "Ajouter un TPE" pour commencer.</p>
-                    </div>
-                  )}
-                </div>
+  </div>
+
+  {/* Selected TPEs list */}
+  {unblockingData.tpes.length > 0 && (
+    <div className="mt-6 space-y-2">
+      {unblockingData.tpes.map((tpe, index) => {
+        const fullTpe = tpes.find((t) => t.id === tpe.id);
+        return (
+          <div
+            key={index}
+            className="flex justify-between items-center p-3 border rounded-lg"
+          >
+            <span>
+              {fullTpe?.manufacturer} – {fullTpe?.model} – SN:{" "}
+              <b>{fullTpe?.serialNumber}</b>
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setUnblockingData((prev) => ({
+                  ...prev,
+                  tpes: prev.tpes.filter((_, i) => i !== index),
+                }))
+              }
+              className="text-red-500 hover:text-red-700"
+            >
+              <FaTrash className="text-sm" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</div>
+
+
               </div>
             )}
 
@@ -667,95 +714,74 @@ else if (activeTab === "intervention") {
         <FaCreditCard className="text-blue-500" />
         Informations TPE
       </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Marque :</label>
-          <Select 
-            onValueChange={(value) => handleInterventionDataChange('tpeBrand', value)} 
-            value={interventionData.tpeBrand}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez une marque" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="INGENICO">INGENICO</SelectItem>
-              <SelectItem value="PAX">PAX</SelectItem>
-              <SelectItem value="VERIFONE">VERIFONE</SelectItem>
-              <SelectItem value="NEWPOS">NEWPOS</SelectItem>
-              <SelectItem value="OTHER">Autre</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Modèle :</label>
-          <Select 
-            onValueChange={(value) => handleInterventionDataChange('tpeModel', value)} 
-            value={interventionData.tpeModel}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez un modèle" />
-            </SelectTrigger>
-            <SelectContent>
-              {interventionData.tpeBrand === "INGENICO" && (
-                <>
-                  <SelectItem value="iCT250">iCT250</SelectItem>
-                  <SelectItem value="iWL250">iWL250</SelectItem>
-                  <SelectItem value="iSC250">iSC250</SelectItem>
-                  <SelectItem value="iPP320">iPP320</SelectItem>
-                </>
-              )}
-              {interventionData.tpeBrand === "PAX" && (
-                <>
-                  <SelectItem value="A920">A920</SelectItem>
-                  <SelectItem value="A920Pro">A920 Pro</SelectItem>
-                  <SelectItem value="A800">A800</SelectItem>
-                  <SelectItem value="S300">S300</SelectItem>
-                </>
-              )}
-              {interventionData.tpeBrand === "VERIFONE" && (
-                <>
-                  <SelectItem value="VX520">VX520</SelectItem>
-                  <SelectItem value="VX680">VX680</SelectItem>
-                  <SelectItem value="VX820">VX820</SelectItem>
-                  <SelectItem value="e355">e355</SelectItem>
-                </>
-              )}
-              {interventionData.tpeBrand === "NEWPOS" && (
-                <>
-                  <SelectItem value="N86">N86</SelectItem>
-                  <SelectItem value="N5">N5</SelectItem>
-                  <SelectItem value="N910">N910</SelectItem>
-                </>
-              )}
-              {interventionData.tpeBrand === "OTHER" && (
-                <SelectItem value="OTHER">Autre modèle</SelectItem>
-              )}
-             {!interventionData.tpeBrand && (
-  <SelectItem value="no-brand" disabled>
-    Sélectionnez d'abord une marque
-  </SelectItem>
-)}
+      <div className="grid grid-cols-2 gap-4 ">
+  {/* Marque */}
+<Select
+  value={interventionData.tpeBrand}
+  onValueChange={(value) => handleInterventionDataChange("tpeBrand", value)}
+>
+  <SelectTrigger className="w-full">
+    <SelectValue placeholder="Sélectionnez une marque" />
+  </SelectTrigger>
+  <SelectContent>
+    {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
+      <SelectItem key={brand} value={brand}>
+        {brand}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 
-            </SelectContent>
-          </Select>
-        </div>
+{/* Modèle */}
+<Select
+  value={interventionData.tpeModel}
+  onValueChange={(value) => handleInterventionDataChange("tpeModel", value)}
+  disabled={!interventionData.tpeBrand}
+>
+  <SelectTrigger className="w-full">
+    <SelectValue placeholder="Sélectionnez un modèle" />
+  </SelectTrigger>
+  <SelectContent>
+    {tpes
+      .filter((t) => t.manufacturer === interventionData.tpeBrand)
+      .map((t) => (
+        <SelectItem key={t.model} value={t.model}>
+          {t.model}
+        </SelectItem>
+      ))}
+  </SelectContent>
+</Select>
+
+{/* Numéro de série */}
+<Select
+  value={interventionData.tpeSn}
+  onValueChange={(value) => handleInterventionDataChange("tpeSn", value)}
+  disabled={!interventionData.tpeModel}
+>
+  <SelectTrigger className="w-full">
+    <SelectValue placeholder="Sélectionnez un SN" />
+  </SelectTrigger>
+  <SelectContent>
+    {tpes
+      .filter(
+        (t) =>
+          t.manufacturer === interventionData.tpeBrand &&
+          t.model === interventionData.tpeModel
+      )
+      .map((t) => (
+        <SelectItem key={t.serialNumber} value={t.serialNumber}>
+          {t.serialNumber}
+        </SelectItem>
+      ))}
+  </SelectContent>
+</Select>
+</div>
+
         
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Numéro de série :</label>
-          <Input
-            type="text"
-            placeholder="SN000000"
-            value={interventionData.tpeSn}
-            onChange={(e) => handleInterventionDataChange('tpeSn', e.target.value)}
-            className="w-full"
-          />
-        </div>
+       
       </div>
     </div>
 
-  </div>
 )}
 
           {activeTab === 'consumable' && (

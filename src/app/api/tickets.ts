@@ -3,6 +3,10 @@ import { ENDPOINTS } from './endpoints';
 
 export const fetchTickets = () => api.get(ENDPOINTS.TICKETS);
 
+export const fetchTPE = () => api.get(ENDPOINTS.TPE);
+
+
+
 export const createTicket = (data: { title: string; description: string }) =>
   api.post(ENDPOINTS.TICKETS, data);
 
@@ -30,3 +34,11 @@ export const createInterventionTicket = (data: {
   tpe_serialNumber: string;
 }) =>
   api.post(ENDPOINTS.INTERVENTION, data);
+
+  export const createDeblockingTicket = (data: {
+    notes: string;
+    deblockingType: string;
+    tpes: { id: number }[];
+  }) =>
+    api.post(ENDPOINTS.DEBLOCKING, data);
+  

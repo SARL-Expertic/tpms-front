@@ -4,5 +4,7 @@ export const ENDPOINTS = {
   TICKETS: '/api/account-manager/ticket',
   NETWORK_CHECK: '/api/account-manager/ticket/network-check',
   INTERVENTION: '/api/account-manager/ticket/intervention',
+  TPE: '/api/account-manager/tpe',
+  DEBLOCKING:'/api/account-manager/ticket/deblocking-order',
   USER: '/users/me',
 };
