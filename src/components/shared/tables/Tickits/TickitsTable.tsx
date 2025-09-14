@@ -15,11 +15,12 @@ export default function TickitsTable() {
 
   const entofr_Type = (TYPE: string): string => {
     const map: Record<string, string> = {
-      "NETWORK_CHECK": "VÉRIFICATION RÉSEAU",
+      "NETWORK_CHECK": "CHOIX DE RÉSEAU",
       "CONSUMABLE": "CONSOMMABLE",
       "INTERVENTION": "INTERVENTION",
       "INSTALLATION": "INSTALLATION",
       "REPLACEMENT": "REMPLACEMENT",
+      "DEBLOCKING_ORDER": "DÉBLOCAGE",
     };
     return map[TYPE] || TYPE;
   }
@@ -37,7 +38,7 @@ export default function TickitsTable() {
   useEffect(() => {
     fetchTickets()
       .then((res) => {
-        const transformed = res.data.map((ticket: any) => ({
+    const transformed = res.data.map((ticket: any) => ({
           id: ticket?.id ?? '',
           type: entofr_Type(ticket?.type ?? ''),
           status: entofr_status(ticket?.status ?? ''),
@@ -50,7 +51,12 @@ export default function TickitsTable() {
             model: ticket?.tpe?.model ?? 'non',
             brand: ticket?.tpe?.manufacturer ?? 'brand',
           },
-          
+          deblockingOrder: ticket?.deblockingOrder ? {
+            id: ticket?.deblockingOrder?.id ?? '',
+            type: ticket?.deblockingOrder?.type ?? '',
+            items: ticket?.deblockingOrder?.items ?? [],
+          } : undefined,
+          problemDescription: ticket?.problemDescription ?? 'N/A',
           client: {
             id: ticket?.client?.id ?? '',
             name: ticket?.client?.commercialName ?? 'N/A',
@@ -72,7 +78,13 @@ export default function TickitsTable() {
             ? format(new Date(ticket.completedDate), "dd/MM/yyyy HH:mm")
             : "",          
         }))
-        setTickets(transformed)
+        // Sort by requestDate descending (newest first)
+        const sorted = transformed.sort((a, b) => {
+          const dateA = a.requestDate ? new Date(a.requestDate.split(' ')[0].split('/').reverse().join('-') + 'T' + a.requestDate.split(' ')[1]) : new Date(0);
+          const dateB = b.requestDate ? new Date(b.requestDate.split(' ')[0].split('/').reverse().join('-') + 'T' + b.requestDate.split(' ')[1]) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        });
+        setTickets(sorted)
         setLoading(false)
       })
       .catch((err) => {
@@ -85,7 +97,7 @@ export default function TickitsTable() {
   return (
     <div className="mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Liste des tickets</h1>
+        <h1 className="text-2xl font-bold">Tableau des demandes</h1>
     <CreateTicketButton />
       </div>
       {loading ? (

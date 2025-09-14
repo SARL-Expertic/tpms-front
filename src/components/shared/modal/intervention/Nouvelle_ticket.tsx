@@ -12,7 +12,25 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchTPE } from "@/app/api/tickets"
+import { createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchClients, fetchTPE } from "@/app/api/tickets"
+import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
+import { set } from "date-fns"
+
+interface Client {
+  id: number;
+  clientName: string;
+  brand: string;
+  phoneNumber: string;
+  mobileNumber: string;
+  location: {
+    wilaya: string;
+    daira: string;
+    address: string;
+  };
+  existingClient: boolean; // New field to track if the client is existing
+}
+
 
 
 // Define types for our specific ticket type data
@@ -43,26 +61,93 @@ type InterventionData = {
 }
 
 type ConsumableData = {
+  tpeId: number;
+  tpeModel: string;
+  manufacturer: string;
+  tpeSerialNumber: string;
   items: {
     type: string;
-    quantity: string;
-    customType?: string;
+    quantity: number;
   }[];
 }
 
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
-  const [agencies, setAgencies] = useState<any[]>([])
-  const [gabs, setGabs] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('network');
 
-  const [agency, setAgency] = useState('')
-  const [gab, setGab] = useState('')
-  const [clientName, setClientName] = useState('')
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
-  const [address, setAddress] = useState('')
-  const [brand, setBrand] = useState('')
 
+  const [clientsfetch, setclientsfetch] = useState([])
+  const [selectedClient, setSelectedClient] = useState(null)
+
+// Fix the wilaya selection state handling
+const [client, setClient] = useState<Client>({
+  id: 0,
+  clientName: '',
+  brand: '',
+  phoneNumber: '',
+  mobileNumber: '',
+  location: { wilaya: '', daira: '', address: '' },
+  existingClient: false, // New field to track if the client is existing
+});
+
+// Update the wilaya selection handler
+const handleWilayaChange = (value: string) => {
+  setClient(prev => ({
+    ...prev,
+    location: { 
+      ...prev.location, 
+      wilaya: value,
+      daira: '' // Reset daira when wilaya changes
+    }
+  }));
+};
+
+// Update the daira selection handler
+const handleDairaChange = (value: string) => {
+  setClient(prev => ({
+    ...prev,
+    location: { 
+      ...prev.location, 
+      daira: value
+    }
+  }));
+};
+
+
+useEffect(() => {
+  fetchClients()
+    .then((res) => {
+      setclientsfetch(res.data.clients || []);
+    })
+    .catch((err) => {
+      console.error("Error fetching clients:", err);
+      setclientsfetch([]);
+    });
+}, []);
+
+useEffect(() => {
+  if (selectedClient) {
+    setClient({
+      ...client,
+      id: selectedClient.id,
+      clientName: selectedClient.commercialName,
+      brand: selectedClient.brand,
+      phoneNumber: selectedClient.phoneNumber,
+      location: {
+        wilaya: selectedClient.location.wilaya,
+        daira: selectedClient.location.daira,
+        address: selectedClient.location.address,
+      },
+
+    });
+  }
+}, [selectedClient]);
+
+const handleSelect = (id: number | string) => {
+    const clientsel = clientsfetch.find(c => c.id === Number(id))
+    setSelectedClient(clientsel)
+  }
 
 
   const [unblockingData, setUnblockingData] = useState({
@@ -81,13 +166,17 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 });
 
 const [consumableData, setConsumableData] = useState<ConsumableData>({
+  tpeId: 0,
+  tpeModel: '',
+  manufacturer: '',
+  tpeSerialNumber: '',
   items: [],
 });
 
 const handleAddConsumable = () => {
   setConsumableData(prev => ({
     ...prev,
-    items: [...prev.items, { type: '', quantity: '1' }]
+    items: [...prev.items, { type: '', quantity: 1 }]
   }));
 };
 
@@ -112,9 +201,9 @@ const handleQuantityChange = (index: number, change: number) => {
     ...prev,
     items: prev.items.map((item, i) => {
       if (i === index) {
-        const currentQty = parseInt(item.quantity || '0');
+        const currentQty = item.quantity || 0;
         const newQty = Math.max(1, currentQty + change);
-        return { ...item, quantity: newQty.toString() };
+        return { ...item, quantity: newQty };
       }
       return item;
     })
@@ -129,9 +218,6 @@ const handleQuantityChange = (index: number, change: number) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState<string>('')
-
-  const [wilaya, setWilaya] = useState("");
-  const [daira, setDaira] = useState("");
 
   const [tpes, setTpes] = useState<any[]>([]);
 
@@ -148,82 +234,107 @@ const handleQuantityChange = (index: number, change: number) => {
   
 
 
-  // const handleAddTpe = () => {
-  //   setUnblockingData(prev => ({
-  //     ...prev,
-  //     tpes: [...prev.tpes, { brand: '', model: '', quantity: '1' }]
-  //   }));
-  // };
-
-  // const handleRemoveTpe = (index: number) => {
-  //   setUnblockingData(prev => ({
-  //     ...prev,
-  //     tpes: prev.tpes.filter((_, i) => i !== index)
-  //   }));
-  // };
-
-  // const handleTpeChange = (index: number, field: string, value: string) => {
-  //   setUnblockingData(prev => ({
-  //     ...prev,
-  //     tpes: prev.tpes.map((tpe, i) =>
-  //       i === index ? { ...tpe, [field]: value } : tpe
-  //     )
-  //   }));
-  // };
 
 
-  
-
-
-  // Handle photo preview
-  const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null
-    setPhoto(file)
-    if (file) {
-      setPreview(URL.createObjectURL(file))
-    } else {
-      setPreview(null)
-    }
-  }, [])
-
-  const clearPhoto = () => {
-    setPhoto(null)
-    setPreview(null)
-  }
 
 
  // Validation
+// Enhanced validation function
 const validateForm = (): boolean => {
-  const newErrors: Record<string, string> = {}
-  if (activeTab !== "unblocking"){
-  if (!phone) {
-    newErrors.phone = "Le numéro de téléphone est obligatoire."
-  } else if (!/^\+?\d{8,15}$/.test(phone)) {
-    newErrors.phone = "Numéro de téléphone invalide."
-  }
-  if (!description) newErrors.description = "La description est obligatoire."
-  if (!wilaya) newErrors.wilaya = "La wilaya est obligatoire."
-  if (!daira) newErrors.daira = "La daira est obligatoire."
-}
-  if (activeTab === "unblocking") {
-    if (!unblockingData.blockedReason)
-      newErrors.blockedReason = "La raison du blocage est obligatoire.";
-    if (unblockingData.tpes.length === 0)
-      newErrors.tpes = "Veuillez ajouter au moins un TPE.";
-  }
+  const newErrors: Record<string, string> = {};
+  if (activeTab !== 'unblocking') {
 
+  // Common validation for all tabs
+  if (!client.phoneNumber) {
+    newErrors.phone = "Le numéro de téléphone est obligatoire.";
+  } else if (!/^\+?\d{8,15}$/.test(client.phoneNumber)) {
+    newErrors.phone = "Numéro de téléphone invalide.";
+  }
+  if( !client.clientName) newErrors.clientName = "Le nom du client est obligatoire.";
+   if( !client.brand) newErrors.brand = "l'enseigne est obligatoire.";
+   if( !client.brand) newErrors.brand = "l'enseigne est obligatoire.";
+  if( !client.location.address) newErrors.address = "L'adresse est obligatoire.";
+     }
+  if (!description) newErrors.description = "La description est obligatoire.";
+  
+  // Tab-specific validation
+  switch (activeTab) {
+    case 'network':
+      // Add network-specific validation
+      break;
+      
+    case 'unblocking':
+      if (!unblockingData.blockedReason) {
+        newErrors.blockedReason = "La raison du blocage est obligatoire.";
+      }
+      if (unblockingData.tpes.length === 0) {
+        newErrors.tpes = "Veuillez ajouter au moins un TPE.";
+      }
+      break;
+      
+    case 'intervention':
+      if (!interventionData.problemCategory) {
+        newErrors.problemCategory = "La catégorie de problème est obligatoire.";
+      }
+      if (!interventionData.problemType) {
+        newErrors.problemType = "Le type de problème est obligatoire.";
+      }
+      if (!interventionData.tpeBrand) {
+        newErrors.tpeBrand = "La marque du TPE est obligatoire.";
+      }
+      if (!interventionData.tpeModel) {
+        newErrors.tpeModel = "Le modèle du TPE est obligatoire.";
+      }
+      if (!interventionData.tpeSn) {
+        newErrors.tpeSn = "Le numéro de série du TPE est obligatoire.";
+      }
+      break;
+      
+    case 'consumable':
+      if (consumableData.items.length === 0) {
+        newErrors.consumableItems = "Au moins un article consommable est requis.";
+      } else {
+        consumableData.items.forEach((item, index) => {
+          if (!item.type) {
+            newErrors[`item-${index}-type`] = "Le type est obligatoire.";
+          }
+          if (!item.quantity || parseInt(item.quantity) < 1) {
+            newErrors[`item-${index}-quantity`] = "La quantité doit être d'au moins 1.";
+          }
+          if (item.type === 'other' && !item.customType) {
+            newErrors[`item-${index}-customType`] = "Veuillez préciser le type.";
+          }
+        });
+      }
+      break;
+  }
+  
+  // Location validation for all tabs except unblocking
+  if (activeTab !== 'unblocking') {
+    if (!client.location.wilaya) newErrors.wilaya = "La wilaya est obligatoire.";
+    if (!client.location.daira) newErrors.daira = "La daira est obligatoire.";
+  }
+  
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
-  setErrors(newErrors)
-  return Object.keys(newErrors).length === 0
-}
 
 // Reset form state
 const resetForm = () => {
-  setPhone('')
-  setDescription('')
-  setWilaya('')
-  setDaira('')
-  setAddress('')
+  setClient({
+    id: 0,
+    clientName: '',
+    brand: '',
+    phoneNumber: '',
+    mobileNumber: '',
+    location: {
+      wilaya: '',
+      daira: '',
+      address: ''
+    },
+    existingClient: false
+  })
   setUnblockingData({
     blockedReason: '',
     notes: '',
@@ -237,6 +348,10 @@ const resetForm = () => {
     tpeSn: ''
   })
   setConsumableData({
+    tpeId: 0,
+    tpeModel: '',
+    manufacturer: '',
+    tpeSerialNumber: '',
     items: []
   })
   setPhoto(null)
@@ -247,47 +362,67 @@ const resetForm = () => {
 
 // Handle Submit
 const handleSubmit = async () => {
-  if (!validateForm()) return false
- 
-
-  const payload = {
-    client_commercialName: clientName,              // Nom du client
-    client_phoneNumber: phone,                      // Téléphone
-    client_brand: brand,                               // Nom de l’enseigne (not implemented)
-    client_wilaya: wilaya,
-    client_daira: daira,
-    client_address: address,
-    notes: description,
-  }
-
+  if (!validateForm()) return false;
+  
   try {
-if (activeTab === 'network') {
-    await createNetworkCheckTicket(payload)
-}
-else if (activeTab === "intervention") {
-      await createInterventionTicket({
-        ...payload,
-        tpe_model: interventionData.tpeModel,
-        tpe_serialNumber: interventionData.tpeSn,
-        problem_description: interventionData.problemCategory + " - " + interventionData.problemType
-      }); // ✅ now handled
+    const basePayload = {
+      new_client: !client.existingClient,
+      client_id: client.existingClient ? client.id : undefined,
+      client_commercialName: client.clientName,
+      client_phoneNumber: client.phoneNumber,
+      client_brand: client.brand,
+      client_wilaya: client.location.wilaya,
+      client_daira: client.location.daira,
+      client_address: client.location.address,
+      notes: description,
+    };
+    
+    switch (activeTab) {
+      case 'network':
+        await createNetworkCheckTicket(basePayload);
+        break;
+        
+      case 'intervention':
+        await createInterventionTicket({
+          ...basePayload,
+          tpe_model: interventionData.tpeModel,
+          tpe_serialNumber: interventionData.tpeSn,
+          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
+        });
+        break;
+        
+      case 'unblocking':
+        await createDeblockingTicket({
+          notes: description,
+          deblockingType: unblockingData.blockedReason,
+          tpes: unblockingData.tpes,
+        });
+        break;
+        
+      case 'consumable':
+        await createConsumableTicket({
+          ...basePayload,
+          tpe_id: consumableData.tpeId,
+          tpe_model: consumableData.tpeModel,
+          manufacturer: consumableData.manufacturer,
+          tpe_serialNumber: consumableData.tpeSerialNumber,
+          consumables: consumableData.items.map(item => ({
+            type: item.type === 'other' ? item.customType || 'Autre' : item.type,
+            quantity: item.quantity
+          }))
+        });
+        break;
     }
-else {
-  await createDeblockingTicket({
-    notes: description,
-    deblockingType: unblockingData.blockedReason,
-    tpes: unblockingData.tpes, // already in {id: number} format
-  });
-}
-    resetForm()
-    setSuccessMessage("✅ Ticket créé avec succès !")
-    return false
+    
+    resetForm();
+    setSuccessMessage("✅ Ticket créé avec succès !");
+    return false;
   } catch (error) {
-    console.error(error)
-    alert("Erreur lors de la création du ticket.")
-    return false
+    console.error(error);
+    alert("Erreur lors de la création du ticket.");
+    return false;
   }
-}
+};
 
 
  
@@ -311,16 +446,16 @@ else {
 
   // Tab configuration
   const tabs = [
-    { id: 'network', label: 'Vérification Réseau', icon: <FaNetworkWired /> },
-    { id: 'unblocking', label: 'Déblocage', icon: <FaUnlock /> },
     { id: 'intervention', label: 'Intervention', icon: <FaTools /> },
     { id: 'consumable', label: 'Consommable', icon: <FaBoxOpen /> },
+    { id: 'network', label: 'Choix de réseau', icon: <FaNetworkWired /> },
+    { id: 'unblocking', label: 'Déblocage', icon: <FaUnlock /> },
   ]
 
   return (
     <DynamicModal
-      triggerLabel="Nouveau ticket"
-      title="Nouveau ticket"
+      triggerLabel="Nouvelle demande"
+      title="Nouveau Demande"
       description="Signalez un problème ou demandez une maintenance."
       onConfirm={handleSubmit}
       onClose={resetForm}
@@ -332,25 +467,59 @@ else {
             {successMessage}
           </div>
         )}
-
         {/* Ticket Type Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`py-3 px-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
+     <h1 className=" font-bold text-red-600">Choisir le type de demande * : </h1>
+
+  <nav className="relative bg-white/80 backdrop-blur-sm rounded-xl p-1  border shadow-lg border-gray-200/50">
+
+    <div className="flex gap-2  space-x-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => setActiveTab(tab.id as any)}
+          className={`
+            relative py-3  px-4 text-sm cursor-pointer font-medium flex items-center gap-2 
+            transition-all duration-300 ease-in-out rounded-lg
+            ${activeTab === tab.id
+              ? 'text-white shadow-lg'
+              : 'text-gray-600 hover:text-gray-900 bg-blue-200/40 hover:bg-blue-600/30'
+            }
+          `}
+        >
+
+          {/* Background for active tab with gradient */}
+          {activeTab === tab.id && (
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-700 rounded-lg z-0"></div>
+          )}
+          
+          {/* Animated circle indicator for active tab */}
+          {activeTab === tab.id && (
+            <div className="absolute -top-1 -right-1">
+              <div className="relative">
+                <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-blue-400 opacity-75"></div>
+                <div className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></div>
+              </div>
+            </div>
+          )}
+          
+          <span className="relative z-10 flex items-center gap-2">
+            {tab.icon}
+            {tab.label}
+          </span>
+          
+          {/* Hover effect for inactive tabs */}
+          {activeTab !== tab.id && (
+            <div className="absolute inset-0 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
+          )}
+        </button>
+
+      ))}
+    </div>
+    
+   
+  </nav>
+  
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -358,15 +527,58 @@ else {
           {activeTab !== 'unblocking' && (
             <>
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4  rounded-lg">
+               <div className="flex flex-col col-span-2">
+{/* Checkbox: existing client */}
+<div className="flex items-center gap-2">
+  <label className="text-xl mb-2 font-bold text-blue-700">
+    client existant ? :
+  </label>
+  <Checkbox
+    className="checked:bg-blue-500"
+    checked={client.existingClient}
+    onCheckedChange={(checked) =>
+      setClient({ ...client, existingClient: !!checked })
+    }
+  >
+    Oui
+  </Checkbox>
+</div>
+
+{/* If existing client → show select */}
+{client.existingClient && (
+  <div className="flex items-center  gap-2">
+    <label className="text-sm py-4 font-bold text-blue-700">
+      Choisir un client :
+    </label>
+    <Select onValueChange={handleSelect}>
+      <SelectTrigger className="w-xs">
+        <SelectValue placeholder="Choose a client" />
+      </SelectTrigger>
+      <SelectContent >
+        {clientsfetch.map((c) => (
+          <SelectItem key={c.id} value={c.id.toString()}>
+            {c.commercialName}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+)}
+
+               </div>
+               
                 <div className="flex flex-col">
                   <label className="text-sm font-medium mb-2">Nom du client :</label>
                   <Input
                     type="text"
                     placeholder="Mohamed Amine"
                     className="w-full"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
+                      disabled={client.existingClient}   // 🔒 block editing
+
+                    value={client.clientName}
+                    onChange={(e) => setClient({ ...client, clientName: e.target.value })}
                   />
+                  {errors.clientName && <p className="text-red-500 text-xs mt-1">{errors.clientName}</p>}
                 </div>
              
 
@@ -377,9 +589,13 @@ else {
   type="text"
   placeholder="+213650000000"
   className="w-full"
-  value={phone}
-  onChange={(e) => setPhone(e.target.value)}
-/>
+    disabled={client.existingClient}   // 🔒 block editing
+
+  value={client.phoneNumber}
+  onChange={(e) => setClient({ ...client, phoneNumber: e.target.value })}
+                />
+                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+
                 </div>
                 {/* Nom de l'enseigne */}
                 <div className="flex flex-col">
@@ -388,58 +604,64 @@ else {
                     type="text"
                     placeholder="Magasin Central"
                     className="w-full"
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
+                      disabled={client.existingClient}   // 🔒 block editing
+
+                    value={client.brand}
+                    onChange={(e) => setClient({ ...client, brand: e.target.value })}
                   />
+                  {errors.brand && <p className="text-red-500 text-xs mt-1">{errors.brand}</p>}
                 </div>
         
 
 
 
-                {/* Wilaya */}
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Wilaya :</label>
-                  <Select
-                    value={wilaya}
-                    onValueChange={(value) => {
-                      setWilaya(value);
-                      setDaira(""); // reset daira
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="-- Sélectionnez une wilaya --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(wilayas).map((w) => (
-                        <SelectItem key={w} value={w}>
-                          {w}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+               {/* Wilaya Selection */}
+<div className="flex flex-col">
+  <label className="text-sm font-medium mb-2">Wilaya :</label>
+  <Select
+    value={client.location.wilaya}
+    onValueChange={handleWilayaChange}
+    disabled={client.existingClient}   // 🔒 block editing
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="-- Sélectionnez une wilaya --" />
+    </SelectTrigger>
+    <SelectContent>
+      {Object.keys(wilayas).map((w) => (
+        <SelectItem key={w} value={w}>
+          {w}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+  {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
+</div>
 
-                {/* Daira */}
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Daira :</label>
-                  <Select
-                    value={daira}
-                    onValueChange={setDaira}
-                    disabled={!wilaya}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="-- Sélectionnez une daira --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {wilaya &&
-                        wilayas[wilaya].map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {d}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+{/* Daira Selection */}
+<div className="flex flex-col">
+  <label className="text-sm font-medium mb-2">Daira :</label>
+  <Select
+    value={client.location.daira}
+    onValueChange={handleDairaChange}
+    disabled={!client.location.wilaya && client.existingClient}  
+      disabled={client.existingClient}   // 🔒 block editing
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="-- Sélectionnez une daira --" />
+    </SelectTrigger>
+  <SelectContent>
+  {client?.location?.wilaya &&
+    wilayas[client.location.wilaya]?.map((d) => (
+      <SelectItem key={d} value={d}>
+        {d}
+      </SelectItem>
+    ))}
+</SelectContent>
+
+  </Select>
+  {errors.daira && <p className="text-red-500 text-xs mt-1">{errors.daira}</p>}
+</div>
+
                 {/* Adresse */}
                 <div className="flex flex-col">
                   <label className="text-sm font-medium mb-2">Adresse :</label>
@@ -447,9 +669,12 @@ else {
   type="text"
   placeholder="Adresse"
   className="w-full"
-  value={address}
-  onChange={(e) => setAddress(e.target.value)}
-/>
+    disabled={client.existingClient}   // 🔒 block editing
+
+  value={client.location.address}
+  onChange={(e) => setClient({ ...client, location: { ...client.location, address: e.target.value } })}
+                />
+                  {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
                 </div>
               </div>
             </>
@@ -468,6 +693,7 @@ else {
                     <Select
                       onValueChange={(value) => handleUnblockingDataChange('blockedReason', value)}
                       value={unblockingData.blockedReason}
+
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Sélectionnez une raison" />
@@ -786,11 +1012,111 @@ else {
 
           {activeTab === 'consumable' && (
   <div className="space-y-6">
-    {/* Consumable Items Section */}
-    <div className="bg-white p-4 rounded-lg border shadow-sm">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-lg flex items-center gap-2 text-gray-800">
-          <FaBoxOpen className="text-purple-500" />
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {/* Marque */}
+    <div className="flex flex-col">
+      <label className="text-sm font-medium mb-2">Marque :</label>
+      <Select
+        onValueChange={(value) => {
+          setConsumableData((prev) => ({
+            ...prev,
+            manufacturer: value,
+            tpeModel: "",
+            tpeSerialNumber: "",
+          }));
+        }}
+        value={consumableData.manufacturer || ""}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Sélectionnez une marque" />
+        </SelectTrigger>
+        <SelectContent>
+          {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
+            <SelectItem key={brand} value={brand}>
+              {brand}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Modèle */}
+    <div className="flex flex-col">
+      <label className="text-sm font-medium mb-2">Modèle :</label>
+      <Select
+        onValueChange={(value) => {
+          setConsumableData((prev) => ({
+            ...prev,
+            tpeModel: value,
+            tpeSerialNumber: "",
+          }));
+        }}
+        value={consumableData.tpeModel || ""}
+        disabled={!consumableData.manufacturer}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Sélectionnez un modèle" />
+        </SelectTrigger>
+        <SelectContent>
+          {tpes
+            .filter((t) => t.manufacturer === consumableData.manufacturer)
+            .map((t) => t.model)
+            .filter((v, i, arr) => arr.indexOf(v) === i) // unique
+            .map((model) => (
+              <SelectItem key={model} value={model}>
+                {model}
+              </SelectItem>
+            ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Numéro de Série */}
+   {/* Numéro de Série */}
+<div className="flex flex-col">
+  <label className="text-sm font-medium mb-2">N° de Série :</label>
+  <Select
+    onValueChange={(value) => {
+      const selected = tpes.find((t) => String(t.id) === value);
+      if (!selected) return;
+
+      setConsumableData((prev) => ({
+        ...prev,
+        tpeSerialNumber: selected.serialNumber, // keep SN for display/storage
+        tpeId: Number(selected.id), // store selected ID
+      }));
+    }}
+    value={consumableData.tpeId} // ✅ bind to ID instead of SN
+    disabled={!consumableData.tpeModel}
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="Sélectionnez un numéro de série" />
+    </SelectTrigger>
+    <SelectContent>
+      {tpes
+        .filter(
+          (t) =>
+            t.manufacturer === consumableData.manufacturer &&
+            t.model === consumableData.tpeModel
+        )
+        .map((t) => (
+          <SelectItem key={t.id} value={String(t.id)}>
+            {t.serialNumber} {/* ✅ show SN, but value is ID */}
+          </SelectItem>
+        ))}
+    </SelectContent>
+  </Select>
+</div>
+
+
+  </div>
+
+  {/* Consumable Items Section */}
+  <div className="bg-white p-4 rounded-lg border shadow-sm">
+    <div className="flex justify-between items-center mb-4">
+      <h3 className="font-semibold text-lg flex items-center gap-2 text-gray-800">
+        <FaBoxOpen className="text-purple-500" />
           Articles consommables
         </h3>
         <Button 

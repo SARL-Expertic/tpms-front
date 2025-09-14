@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DynamicModal } from "../Modal";
 import { Ticket } from "@/types/ticket";
+import { FaBoxesStacked } from "react-icons/fa6";
 
 type Props = {
   ticket: Ticket;
@@ -19,7 +20,7 @@ const statusColorMap: Record<string, string> = {
 };
 
 export function TicketDetailsButton({ ticket }: Props) {
-  const { id, type, status, note, tpe, client, requestDate, completedDate } = ticket;
+  const { id, type, status, note, tpe, client, deblockingOrder, requestDate, completedDate } = ticket;
 
   return (
     <DynamicModal
@@ -78,28 +79,75 @@ export function TicketDetailsButton({ ticket }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={`grid  ${type === "INTERVENTION" || type === "CONSOMMABLE" ? "md:grid-cols-2" : "md:grid-cols-1"} gap-6`}>
           {/* Client Information */}
-          <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
+        {type !=='DÉBLOCAGE' && 
+          <div className={`space-y-3 ${type === "INTERVENTION" || type === "CONSOMMABLE" ? "col-span-1" : "col-span-2"} bg-white dark:bg-gray-800 p-4 rounded-lg border`}>
             <h3 className="font-semibold text-foreground flex items-center gap-2">
               <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
                 <FaUser className="text-green-600 dark:text-green-400" />
               </div>
               Client
             </h3>
-            <div className="grid gap-2 text-sm ml-12">
-              <div><span className="text-muted-foreground">Nom du client :</span> {client.name}</div>
-              <div><span className="text-muted-foreground">Nom de l'enseigne:</span> {client.brand}</div>
-              <div><span className="text-muted-foreground">Téléphone:</span> {client.phoneNumber}</div>
-              <div><span className="text-muted-foreground">Mobile:</span> {client.mobileNumber}</div>
-<div>
+              <div className="grid gap-2 text-sm ml-12">
+                <div><span className="text-muted-foreground">Nom du client :</span> {client.name}</div>
+                <div><span className="text-muted-foreground">Nom de l'enseigne:</span> {client.brand}</div>
+                <div><span className="text-muted-foreground">Téléphone:</span> {client.phoneNumber}</div>
+                <div><span className="text-muted-foreground">Mobile:</span> {client.mobileNumber}</div>
+           <div>
   <span className="text-muted-foreground">Adresse:</span>{" "}
   {client.location?.wilaya || "N/A"}, {client.location?.daira || "N/A"}, {client.location?.address || "N/A"}
 </div>
+              </div>
+
+
+
             </div>
+}
+
+{type === "CONSOMMABLE"  &&
+  <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
+    <h3 className="font-semibold text-foreground flex items-center gap-2">
+      <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
+        <FaBoxesStacked className="text-green-600 dark:text-green-400" />
+      </div>
+      Consommables
+    </h3>
+ 
+    <div className="grid gap-4 text-sm ml-12">
+        <div  className="mb-2">
+          <div>
+            <span className="text-muted-foreground">Type:</span> papers
           </div>
+          <div>
+            <span className="text-muted-foreground">Quantité:</span> 2
+          </div>
+        </div>
+
+         <div  className="mb-2">
+          <div>
+            <span className="text-muted-foreground">Type:</span> printer
+          </div>
+          <div>
+            <span className="text-muted-foreground">Quantité:</span> 2
+          </div>
+        </div>
+
+         <div  className="mb-2">
+          <div>
+            <span className="text-muted-foreground">Type:</span> Toner
+          </div>
+          <div>
+            <span className="text-muted-foreground">Quantité:</span> 2
+          </div>
+        </div>
+    </div>
+  </div>
+  }
+
 
           {/* TPE Information */}
+          {type !=='CHOIX DE RÉSEAU' && type !=='CONSOMMABLE' &&
           <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
               <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
@@ -107,12 +155,29 @@ export function TicketDetailsButton({ ticket }: Props) {
               </div>
               TPE
             </h3>
+            {type ==='CHOIX DE RÉSEAU' || type ==='INTERVENTION' && 
+
             <div className="grid gap-2 text-sm ml-12">
               <div><span className="text-muted-foreground">SN:</span> {tpe.serialNumber}</div>
               <div><span className="text-muted-foreground">Modèle:</span> {tpe.model}</div>
               <div><span className="text-muted-foreground">Marque:</span> {tpe.brand}</div>
             </div>
+}
+            {type ==='DÉBLOCAGE' && 
+            <div className="grid grid-cols-2 gap-4 text-sm ml-12">
+              {deblockingOrder?.items.map((item) => (
+                <div key={item.id} className="mb-2">
+                                    <div><span className="text-muted-foreground">Marque:</span> {item.clientTpe.manufacturer}</div>
+                                                      <div><span className="text-muted-foreground">Modèle:</span> {item.clientTpe.model}</div>
+                  <div><span className="text-muted-foreground">SN:</span> {item.clientTpe.serialNumber}</div>
+                </div>
+              ))}
+
+            </div>
+}
           </div>
+    }
+    
         </div>
 
         {/* Notes */}

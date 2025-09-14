@@ -6,5 +6,7 @@ export const ENDPOINTS = {
   INTERVENTION: '/api/account-manager/ticket/intervention',
   TPE: '/api/account-manager/tpe',
   DEBLOCKING:'/api/account-manager/ticket/deblocking-order',
+  CLIENTS: '/api/account-manager/client',
+  CONSUMABLE: '/api/account-manager/ticket/consumable',
   USER: '/users/me',
 };

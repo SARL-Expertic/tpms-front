@@ -14,13 +14,18 @@ export interface Ticket {
     brand: string;
     phoneNumber: string;
     mobileNumber: string;
-    location:{
+  location: {
     wilaya: string;
     daira: string;
     address: string;
-  }
   };
-
   requestDate: string;   // already formatted with date-fns
   completedDate: string; // already formatted with date-fns
-}
+  deblockingOrder?: {
+    id: string;
+    type: string;
+    items: { id: number; model: string; brand: string; serialNumber: string }[];
+  };
+  problemDescription?: string;
+};
+  }

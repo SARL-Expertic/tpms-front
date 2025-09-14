@@ -11,12 +11,19 @@ import { TicketDetailsButton } from "../../modal/intervention/tickitsdetailsButt
 export const TickitColumns: ColumnDef<Ticket>[] = [
   {
     accessorKey: "id",
-    header: "N°",
+    header: "N° ticket",
     cell: ({ row }) => <span>{row.original.id}</span>,
   },
+
+   {
+    accessorKey: "date",
+    header: "DATE",
+    cell: ({ row }) => <span>{row.original.requestDate}</span>,
+  },
+
   {
     accessorKey: "type",
-    header: "TYPE",
+    header: "TYPE DE DEMANDE",
     cell: ({ row }) => (
       <Badge className="bg-blue-100 text-blue-600">{row.original.type}</Badge>
     ),
