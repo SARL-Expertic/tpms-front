@@ -17,7 +17,7 @@ export async function middleware(req: NextRequest) {
       
             const dashboardPaths: Record<string, string> = {
               BANK_USER: '/client/dashboard',
-              MANAGER: '/manager/dashboard',
+              ACCOUNT_MANAGER: '/manager/dashboard',
             }
       
             const redirectPath = dashboardPaths[role] || '/dashboard'
@@ -44,7 +44,7 @@ export async function middleware(req: NextRequest) {
   
       const rolePaths: Record<string, string[]> = {
         BANK_USER: ['/client', '/dashboard'],
-        MANAGER: ['/manager', '/dashboard'],
+        ACCOUNT_MANAGER: ['/manager', '/dashboard'],
       }
   
       const allowedPaths = rolePaths[role] || []

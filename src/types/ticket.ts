@@ -3,6 +3,7 @@ export interface Ticket {
   type: string;
   status: string;
   note: string;
+  bank?: string;
   tpe: {
     serialNumber: string;
     model: string;

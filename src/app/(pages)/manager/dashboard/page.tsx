@@ -2,14 +2,12 @@
 // import TicketList from '../../../components/TicketList';
 // import { useTickets } from '../../../hooks/useTickets';
 
+import TickitsTable from "@/components/shared/tables/Tickits_bank/TickitsTable";
+
 const AdminDashboard = () => {
   // const { tickets, loading } = useTickets();
   return (
-    // <AdminLayout>
-    //   <h2>Admin Dashboard</h2>
-    //   {loading ? <p>Loading...</p> : <TicketList tickets={tickets} />}
-    // </AdminLayout>
-    <h1>hello</h1>
+   <TickitsTable/>
   );
 };
 

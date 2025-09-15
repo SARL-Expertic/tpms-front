@@ -7,14 +7,14 @@ import { MdHelpOutline } from "react-icons/md";
 import ProfileAvatar from "./ProfileAvatar";
 import { useSidebar } from "@/providers/SidebarContext";
 import SidebarToggle from "./SidebarToggle";
-// import { useAuth } from "@/app/hooks/useAuth"; // ✅ import Auth context
+import { useAuth } from "@/providers/AuthContext";
 
 export default function Sidebar() {
   const { collapsed } = useSidebar();
-  // const { user } = useAuth(); // ✅ get user from context
-  // const role = user?.role || "Client"; // ✅ fallback if no user yet
+  const { user } = useAuth(); // ✅ get user from context
+  const role_current = user?.role || "Client"; // ✅ fallback if no user yet
 
-  const navItems = getNavItems("Client");
+  const navItems = getNavItems(role_current);
 
   return (
     <div

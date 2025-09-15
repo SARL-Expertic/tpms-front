@@ -6,7 +6,7 @@ import { managerNav } from './manager'
 
 export function getNavItems(role: string = 'client'): NavItem[] {
   switch (role) {
-    case 'manager':
+    case 'ACCOUNT_MANAGER':
       return managerNav
     case 'client':
     default:

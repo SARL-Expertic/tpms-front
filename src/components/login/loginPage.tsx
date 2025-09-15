@@ -40,7 +40,7 @@ export default function LoginPage() {
 
       // Redirect
       if (role === "BANK_USER") router.push("/client/dashboard");
-      else if (role === "MANAGER") router.push("/manager/dashboard");
+      else if (role === "ACCOUNT_MANAGER") router.push("/manager/dashboard");
       else router.push("/unauthorized");
 
     } catch (err) {
