@@ -27,5 +27,11 @@ export interface Ticket {
     items: { id: number; model: string; brand: string; serialNumber: string }[];
   };
   problemDescription?: string;
+  intervention?: {
+    problem: string;
+  };
 };
-  }
+consumableRequest?: {
+    items: { type: string; quantity: number; }[];
+  };
+}

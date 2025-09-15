@@ -12,15 +12,13 @@ type Props = {
 };
 
 const statusColorMap: Record<string, string> = {
-  "Clôturé": "bg-green-600",
-  "Ouvert": "bg-blue-500",
-  "En attente": "bg-yellow-500",
-  "Annulé": "bg-red-600",
-  "En cours": "bg-orange-500",
+   "CLOTURÉ": "bg-green-600 text-2xl",
+    "EN COURS": "bg-orange-500",
+     "EN ATTENTE": "bg-blue-500",
 };
 
 export function TicketDetailsButton({ ticket }: Props) {
-  const { id, type, status, note, tpe, client, deblockingOrder, requestDate, completedDate } = ticket;
+  const { id, type, status, note, tpe, client, deblockingOrder, requestDate, completedDate, intervention , consumableRequest } = ticket;
 
   return (
     <DynamicModal
@@ -47,8 +45,8 @@ export function TicketDetailsButton({ ticket }: Props) {
               </h2>
             </div>
 
-            <Badge className="flex items-center gap-2 px-3 py-2 text-sm">
-              <span className={`h-2 w-2 rounded-full ${statusColorMap[status] || "bg-gray-400"}`} />
+            <Badge className={`flex items-center ${statusColorMap[status]} gap-2 px-3 py-2 text-sm`}>
+              <span className={`h-2 w-2 rounded-full   bg-white `} />
               {status}
             </Badge>
           </div>
@@ -113,36 +111,28 @@ export function TicketDetailsButton({ ticket }: Props) {
       </div>
       Consommables
     </h3>
- 
-    <div className="grid gap-4 text-sm ml-12">
-        <div  className="mb-2">
-          <div>
-            <span className="text-muted-foreground">Type:</span> papers
+  {(!consumableRequest || consumableRequest.items.length === 0) ? (
+    <p className="text-sm bg-muted/30 rounded-lg p-4 ml-12">Aucun consommable demandé</p>
+  ) : (
+    <div className="ml-12">
+      <div className="grid gap-4 text-sm">
+        {consumableRequest.items.map((item) => (
+          <div key={item.id} className="mb-2">
+            <div>
+              <span className="text-muted-foreground">Type:</span> {item.type}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Quantité:</span> {item.quantity}
+            </div>
           </div>
-          <div>
-            <span className="text-muted-foreground">Quantité:</span> 2
-          </div>
-        </div>
-
-         <div  className="mb-2">
-          <div>
-            <span className="text-muted-foreground">Type:</span> printer
-          </div>
-          <div>
-            <span className="text-muted-foreground">Quantité:</span> 2
-          </div>
-        </div>
-
-         <div  className="mb-2">
-          <div>
-            <span className="text-muted-foreground">Type:</span> Toner
-          </div>
-          <div>
-            <span className="text-muted-foreground">Quantité:</span> 2
-          </div>
-        </div>
+        ))}
+      </div>
     </div>
-  </div>
+  )}
+
+    </div>
+        
+
   }
 
 
@@ -155,14 +145,20 @@ export function TicketDetailsButton({ ticket }: Props) {
               </div>
               TPE
             </h3>
-            {type ==='CHOIX DE RÉSEAU' || type ==='INTERVENTION' && 
-
-            <div className="grid gap-2 text-sm ml-12">
-              <div><span className="text-muted-foreground">SN:</span> {tpe.serialNumber}</div>
-              <div><span className="text-muted-foreground">Modèle:</span> {tpe.model}</div>
-              <div><span className="text-muted-foreground">Marque:</span> {tpe.brand}</div>
-            </div>
-}
+          {(type ==='CHOIX DE RÉSEAU' || type ==='INTERVENTION') && (
+            <>
+              <div className="grid gap-2 text-sm ml-12">
+                <div><span className="text-muted-foreground">SN:</span> {tpe.serialNumber}</div>
+                <div><span className="text-muted-foreground">Modèle:</span> {tpe.model}</div>
+                <div><span className="text-muted-foreground">Marque:</span> {tpe.brand}</div>
+              </div>
+              {type ==='INTERVENTION' && intervention?.problem && (
+                <div className="grid gap-2 text-sm ml-12">
+                  <div><span className="text-muted-foreground">Problème:</span> {intervention.problem}</div>
+                </div>
+              )}
+            </>
+          )}
             {type ==='DÉBLOCAGE' && 
             <div className="grid grid-cols-2 gap-4 text-sm ml-12">
               {deblockingOrder?.items.map((item) => (

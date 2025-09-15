@@ -69,13 +69,15 @@ export const TickitColumns: ColumnDef<Ticket>[] = [
     accessorKey: "client",
     header: "CLIENT",
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <Avatar>
-          <AvatarFallback>{row.original.client.name[0]}</AvatarFallback>
-        </Avatar>
-        <span>{row.original.client.name}</span>
-      </div>
-    ),
+          row.original.client.name !== '-' ? (
+            <div className="flex items-center gap-2">
+              <Avatar>
+                <AvatarFallback>{row.original.client.name[0]}</AvatarFallback>
+              </Avatar>
+              <span>{row.original.client.name}</span>
+            </div>
+          ) : null
+        ),
   },
 
    {

@@ -50,9 +50,6 @@ export const fetchClients = () => api.get(ENDPOINTS.CLIENTS);
 
 export const createConsumableTicket = (
   data: NewOrExistingClient & {
-        tpe_model: string;
-        manufacturer: string;
-        tpe_serialNumber: string;
         consumables: { type: string; quantity: number }[];
   }
 ) => api.post(ENDPOINTS.CONSUMABLE, data);

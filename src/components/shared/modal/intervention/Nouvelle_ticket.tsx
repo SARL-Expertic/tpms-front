@@ -61,10 +61,6 @@ type InterventionData = {
 }
 
 type ConsumableData = {
-  tpeId: number;
-  tpeModel: string;
-  manufacturer: string;
-  tpeSerialNumber: string;
   items: {
     type: string;
     quantity: number;
@@ -72,7 +68,7 @@ type ConsumableData = {
 }
 
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
-  const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('network');
+  const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('intervention');
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
@@ -166,10 +162,6 @@ const handleSelect = (id: number | string) => {
 });
 
 const [consumableData, setConsumableData] = useState<ConsumableData>({
-  tpeId: 0,
-  tpeModel: '',
-  manufacturer: '',
-  tpeSerialNumber: '',
   items: [],
 });
 
@@ -348,10 +340,6 @@ const resetForm = () => {
     tpeSn: ''
   })
   setConsumableData({
-    tpeId: 0,
-    tpeModel: '',
-    manufacturer: '',
-    tpeSerialNumber: '',
     items: []
   })
   setPhoto(null)
@@ -402,14 +390,10 @@ const handleSubmit = async () => {
       case 'consumable':
         await createConsumableTicket({
           ...basePayload,
-          tpe_id: consumableData.tpeId,
-          tpe_model: consumableData.tpeModel,
-          manufacturer: consumableData.manufacturer,
-          tpe_serialNumber: consumableData.tpeSerialNumber,
           consumables: consumableData.items.map(item => ({
             type: item.type === 'other' ? item.customType || 'Autre' : item.type,
             quantity: item.quantity
-          }))
+          })),
         });
         break;
     }
@@ -1013,104 +997,6 @@ const handleSubmit = async () => {
           {activeTab === 'consumable' && (
   <div className="space-y-6">
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    {/* Marque */}
-    <div className="flex flex-col">
-      <label className="text-sm font-medium mb-2">Marque :</label>
-      <Select
-        onValueChange={(value) => {
-          setConsumableData((prev) => ({
-            ...prev,
-            manufacturer: value,
-            tpeModel: "",
-            tpeSerialNumber: "",
-          }));
-        }}
-        value={consumableData.manufacturer || ""}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sélectionnez une marque" />
-        </SelectTrigger>
-        <SelectContent>
-          {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
-            <SelectItem key={brand} value={brand}>
-              {brand}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-
-    {/* Modèle */}
-    <div className="flex flex-col">
-      <label className="text-sm font-medium mb-2">Modèle :</label>
-      <Select
-        onValueChange={(value) => {
-          setConsumableData((prev) => ({
-            ...prev,
-            tpeModel: value,
-            tpeSerialNumber: "",
-          }));
-        }}
-        value={consumableData.tpeModel || ""}
-        disabled={!consumableData.manufacturer}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sélectionnez un modèle" />
-        </SelectTrigger>
-        <SelectContent>
-          {tpes
-            .filter((t) => t.manufacturer === consumableData.manufacturer)
-            .map((t) => t.model)
-            .filter((v, i, arr) => arr.indexOf(v) === i) // unique
-            .map((model) => (
-              <SelectItem key={model} value={model}>
-                {model}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
-    </div>
-
-    {/* Numéro de Série */}
-   {/* Numéro de Série */}
-<div className="flex flex-col">
-  <label className="text-sm font-medium mb-2">N° de Série :</label>
-  <Select
-    onValueChange={(value) => {
-      const selected = tpes.find((t) => String(t.id) === value);
-      if (!selected) return;
-
-      setConsumableData((prev) => ({
-        ...prev,
-        tpeSerialNumber: selected.serialNumber, // keep SN for display/storage
-        tpeId: Number(selected.id), // store selected ID
-      }));
-    }}
-    value={consumableData.tpeId} // ✅ bind to ID instead of SN
-    disabled={!consumableData.tpeModel}
-  >
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="Sélectionnez un numéro de série" />
-    </SelectTrigger>
-    <SelectContent>
-      {tpes
-        .filter(
-          (t) =>
-            t.manufacturer === consumableData.manufacturer &&
-            t.model === consumableData.tpeModel
-        )
-        .map((t) => (
-          <SelectItem key={t.id} value={String(t.id)}>
-            {t.serialNumber} {/* ✅ show SN, but value is ID */}
-          </SelectItem>
-        ))}
-    </SelectContent>
-  </Select>
-</div>
-
-
-  </div>
 
   {/* Consumable Items Section */}
   <div className="bg-white p-4 rounded-lg border shadow-sm">
@@ -1158,12 +1044,12 @@ const handleSubmit = async () => {
                       <SelectValue placeholder="Sélectionnez le type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="toner">Toner</SelectItem>
-                      <SelectItem value="paper">Papier</SelectItem>
-                      <SelectItem value="ribbon">Ruban</SelectItem>
-                      <SelectItem value="cartridge">Cartouche</SelectItem>
-                      <SelectItem value="cleaning_kit">Kit de nettoyage</SelectItem>
-                      <SelectItem value="other">Autre</SelectItem>
+                      <SelectItem value="TONER">Toner</SelectItem>
+                      <SelectItem value="PAPIER">Papier</SelectItem>
+                      <SelectItem value="RUBAN">Ruban</SelectItem>
+                      <SelectItem value="CARTOUCHE">Cartouche</SelectItem>
+                      <SelectItem value="KIT_DE_NETTOYAGE">Kit de nettoyage</SelectItem>
+                      <SelectItem value="AUTRE">Autre</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors[`item-${index}-type`] && (

@@ -43,13 +43,13 @@ export default function TickitsTable() {
           type: entofr_Type(ticket?.type ?? ''),
           status: entofr_status(ticket?.status ?? ''),
           note: ticket?.notes ?? '',
-          model: ticket?.tpe?.model ?? 'non',
-          brand: ticket?.tpe?.manufacturer ?? 'brand',
+          model: ticket?.tpe?.model ?? '-',
+          brand: ticket?.tpe?.manufacturer ?? '-',
           
           tpe: {
             serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
-            model: ticket?.tpe?.model ?? 'non',
-            brand: ticket?.tpe?.manufacturer ?? 'brand',
+            model: ticket?.tpe?.model ?? '-',
+            brand: ticket?.tpe?.manufacturer ?? '-',
           },
           deblockingOrder: ticket?.deblockingOrder ? {
             id: ticket?.deblockingOrder?.id ?? '',
@@ -57,11 +57,14 @@ export default function TickitsTable() {
             items: ticket?.deblockingOrder?.items ?? [],
           } : undefined,
           problemDescription: ticket?.problemDescription ?? 'N/A',
+          intervention: ticket?.intervention ?{
+            problem: ticket?.intervention?.problem ?? '-',
+          } : undefined,
           client: {
             id: ticket?.client?.id ?? '',
-            name: ticket?.client?.commercialName ?? 'N/A',
-            brand: ticket?.client?.brand ?? 'N/A',
-            phoneNumber: ticket?.client?.phoneNumber ?? 'N/A',
+            name: ticket?.client?.commercialName ?? '-',
+            brand: ticket?.client?.brand ?? '-',
+            phoneNumber: ticket?.client?.phoneNumber ?? '-',
             mobileNumber: ticket?.client?.mobileNumber ?? '-',
           
             location: {
@@ -70,7 +73,9 @@ export default function TickitsTable() {
               address: ticket?.client?.location?.address ?? 'N/A',
             },
           },
-          
+          consumableRequest: ticket?.consumableRequest ? {
+            items: ticket?.consumableRequest?.items ?? [],
+          } : undefined,
           requestDate: ticket?.requestDate
             ? format(new Date(ticket.requestDate), "dd/MM/yyyy HH:mm")
             : "",
