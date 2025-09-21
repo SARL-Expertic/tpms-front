@@ -18,6 +18,7 @@ interface NewOrExistingClient extends ClientBase {
   client_id?: number;
 }
 
+export const fetchbanks = () => api.get(ENDPOINTS.BANKS)
 export const fetchTickets = () => api.get(ENDPOINTS.TICKETS);
 
 export const fetchTickets_Manager = () => api.get(ENDPOINTS.TICKETS_MANAGER);

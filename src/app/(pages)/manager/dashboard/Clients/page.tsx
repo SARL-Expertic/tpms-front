@@ -1,3 +1,5 @@
+import BanksTable from "@/components/shared/tables/banks_ACC_MANAGER/TPEmanager";
+
 export default function Page() {
-  return <div>Liste des Clients</div>;
+  return <BanksTable/>;
 }

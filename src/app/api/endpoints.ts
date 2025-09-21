@@ -12,4 +12,5 @@ export const ENDPOINTS = {
   TICKETS_MANAGER: '/api/account-manager/ticket',
   TPES_MANAGER: '/api/account-manager/tpe',
   CLIENTS_MANAGER: '/api/account-manager/client',
+  BANKS:'/api/account-manager/bank',
 };

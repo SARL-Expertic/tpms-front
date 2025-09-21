@@ -6,7 +6,8 @@ import { fetchTickets, fetchTickets_Manager } from "@/app/api/tickets"
 import { format } from "date-fns"
 import { filter_Tickets_manager } from "@/constants/tickets/filter_Tickets_manager"
 import { TickitColumns } from "./columns"
-import CreateTicketButton from "../../modal/intervention/Nouvelle_ticket"
+import CreateTicketButton from "../../modal/interventionBank/Nouvelle_ticket"
+
 
 export default function TickitsTable() {
   const [tickets, setTickets] = useState([])

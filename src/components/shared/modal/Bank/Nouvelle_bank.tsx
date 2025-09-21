@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchClients, fetchTPE } from "@/app/api/tickets"
+import { createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, fetchTPE } from "@/app/api/tickets"
 import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "date-fns"
@@ -67,6 +67,16 @@ type ConsumableData = {
   }[];
 }
 
+type banksinfo={
+  bankid:number;
+  BankName:string;
+}
+
+type BankInfo = {
+  id: number;
+  name: string;
+};
+
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
   const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('intervention');
 
@@ -75,6 +85,7 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
   const [clientsfetch, setclientsfetch] = useState([{
     id:0,
+    BankName:''
   }
   ])
   const [selectedClient, setSelectedClient] = useState(
@@ -92,6 +103,11 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
     }
   )
 
+
+  const [banks, setBanks] = useState<BankInfo[]>([]);
+  const [selectedBank, setSelectedBank] = useState<BankInfo | null>(null);
+
+  
 // Fix the wilaya selection state handling
 const [client, setClient] = useState<Client>({
   id: 0,
@@ -128,6 +144,16 @@ const handleDairaChange = (value: string) => {
 
 
 useEffect(() => {
+  fetchbanks()
+    .then((res) => {
+      // assuming API returns { banks: [{ id, name }, ...] }
+      setBanks(res.data.banks || []);
+    })
+    .catch((err) => {
+      console.error("Error fetching banks:", err);
+      setBanks([]);
+    });
+
   fetchClients()
     .then((res) => {
       setclientsfetch(res.data.clients || []);
@@ -369,6 +395,7 @@ const handleSubmit = async () => {
   if (!validateForm()) return false;
   
   try {
+  
     const basePayload = {
       new_client: !client.existingClient,
       client_id: client.existingClient ? client.id : undefined,
@@ -522,6 +549,34 @@ const handleSubmit = async () => {
 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+{/* Bank Selection */}
+<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4  rounded-lg">
+ <div className="flex flex-col gap-1">
+ <label className="text-sm font-medium mb-2">Banque :</label>
+  <Select
+    onValueChange={(value) => {
+      const bank = banks.find((b) => b.id.toString() === value);
+      setSelectedBank(bank || null);
+    }}
+    value={selectedBank?.id?.toString() || ""}
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="-- Sélectionnez une banque --" />
+    </SelectTrigger>
+    <SelectContent>
+      {banks.map((b) => (
+        <SelectItem key={b.id} value={b.id.toString()}>
+          {b.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+ </div>
+
+</div>
+
+
 
           {/* Common Fields */}
           {activeTab !== 'unblocking' && (
