@@ -1,5 +1,3 @@
-"use client";
-
 import { ColumnDef } from "@tanstack/react-table";
 import { ConsumableDetailsButton } from "../../modal/CONSUMBLE/CONSUMBLEdetailsButton";
 import { Button } from "@/components/ui/button";
@@ -8,7 +6,8 @@ import { FaTrash } from "react-icons/fa";
 export type ConsumableRow = {
   id: number;
   name: string;
-  quantity: number;
+  quantity: number;   // total stock
+  reserved: number;   // reserved stock
 };
 
 export const ConsumableColumns: ColumnDef<ConsumableRow>[] = [
@@ -27,17 +26,34 @@ export const ConsumableColumns: ColumnDef<ConsumableRow>[] = [
       const consumable = row.original;
 
       return (
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            className="w-20 border rounded px-2 py-1"
-            value={consumable.quantity}
-            onChange={(e) => {
-              // TODO: API call to update quantity
-              console.log("Update quantity", consumable.id, e.target.value);
-            }}
-          />
-        </div>
+        <input
+          type="number"
+          className="w-20 border rounded px-2 py-1"
+          value={consumable.quantity}
+          onChange={(e) => {
+            // TODO: API call to update quantity
+            console.log("Update quantity", consumable.id, e.target.value);
+          }}
+        />
+      );
+    },
+  },
+  {
+    accessorKey: "reserved",
+    header: "Reserved",
+    cell: ({ row }) => {
+      const consumable = row.original;
+
+      return (
+        <input
+          type="number"
+          className="w-20 border rounded px-2 py-1"
+          value={consumable.reserved}
+          onChange={(e) => {
+            // TODO: API call to update reserved
+            console.log("Update reserved", consumable.id, e.target.value);
+          }}
+        />
       );
     },
   },

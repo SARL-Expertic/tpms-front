@@ -4,6 +4,7 @@ import { DataTable } from "../data-table";
 import { useEffect, useState } from "react";
 import { fetchConsumables } from "@/app/api/tickets"; // 👉 API call to fetch consumables
 import { ConsumableColumns} from './columns'
+import ConsumableModal from "../../modal/CONSUMBLE/Nouvelle_CONSUMBLE";
 
 type Consumable = {
   id: number;
@@ -33,6 +34,7 @@ export default function ConsumablesTable() {
     <div className="mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Tableau des Consommables</h1>
+        <ConsumableModal />
       </div>
 
       {loading ? (

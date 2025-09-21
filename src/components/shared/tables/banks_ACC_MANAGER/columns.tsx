@@ -1,30 +1,27 @@
+// columns.ts
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { BankDetailsButton } from "../../modal/Bank/BankdetailsButton";
 
-export type BankRow = {
+import { Button } from "@/components/ui/button";
+
+type BankRow = {
   id: number;
   name: string;
-  subaccountCount: number;
+  status?: string;
+  subaccounts: { id: number; name: string; email: string }[];
+  tpes: { id: number; name: string; models: { id: number; name: string }[] }[];
 };
 
 export const BankColumns: ColumnDef<BankRow>[] = [
+  { accessorKey: "id", header: "Bank ID" },
+  { accessorKey: "name", header: "Bank Name" },
+  { accessorKey: "status", header: "Status" },
   {
-    accessorKey: "id",
-    header: "Bank ID",
+    header: "Actions",
+    cell: ({ row }) => {
+      const bank = row.original;
+      return <BankDetailsButton bank={bank} />;
+    },
   },
-  {
-    accessorKey: "name",
-    header: "Bank Name",
-  },
-  {
-    accessorKey: "subaccountCount",
-    header: "Number of Accounts",
-  },
-  {
-    header: 'Actions',
-    cell: ({ row }) => (
-      <BankDetailsButton bank={row}/>
-    )
-  }
 ];

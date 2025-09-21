@@ -1,1238 +1,507 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { DynamicModal } from '../Modal'
-import { Input } from '@/components/ui/input'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { FaExchangeAlt, FaTrash, FaNetworkWired, FaUnlock, FaTools, FaBoxOpen } from 'react-icons/fa'
-import { MdOutlineUploadFile } from 'react-icons/md'
-import { wilayas } from "@/constants/algeria/wilayas"
-import { FaPlus, FaInfoCircle } from 'react-icons/fa';
-import { Button } from "@/components/ui/button"
-import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
-import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, fetchTPE } from "@/app/api/tickets"
-import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
-import { Checkbox } from "@/components/ui/checkbox"
-import { set } from "date-fns"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectItem, SelectTrigger, SelectValue, SelectContent } from "@/components/ui/select";
+import { DynamicModal } from "../Modal";
+import { Plus, Trash2, ChevronDown, Building, CreditCard, UserPlus } from "lucide-react";
 
-interface Client {
-  id: number;
-  clientName: string;
-  brand: string;
-  phoneNumber: string;
-  mobileNumber: string;
-  location: {
-    wilaya: string;
-    daira: string;
-    address: string;
-  };
-  existingClient: boolean; // New field to track if the client is existing
-}
-
-
-
-// Define types for our specific ticket type data
-type NetworkCheckData = {
-  ipAddress: string;
-  signalStrength: string;
-  connectionType: string;
-  pingResult: string;
-}
-
-type UnblockingData = {
-  blockedReason: string;
-  previousAttempts: string;
-  requiredAction: string;
-  tpes: {
-    brand: string;
-    model: string;
-    quantity: string;
-  }[];
-}
-
-type InterventionData = {
-  problemCategory: string;
-  problemType: string;
-  tpeBrand: string;
-  tpeModel: string;
-  tpeSn: string;
-}
-
-type ConsumableData = {
-  items: {
-    type: string;
-    quantity: number;
-  }[];
-}
-
-type banksinfo={
-  bankid:number;
-  BankName:string;
-}
-
-type BankInfo = {
+type SubAccount = {
   id: number;
   name: string;
+  email: string;
+  phone: string;
+  password: string;
 };
 
-export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
-  const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('intervention');
+type TPEModel = { id: number; name: string };
+type TPE = { id: number; name: string; models: TPEModel[] };
 
-  const [phone, setPhone] = useState('')
-  const [description, setDescription] = useState('')
-
-  const [clientsfetch, setclientsfetch] = useState([{
-    id:0,
-    BankName:''
-  }
-  ])
-  const [selectedClient, setSelectedClient] = useState(
-    {
-      id:0,
-      commercialName: '',
-      brand: '',
-      phoneNumber: '',
-      location: {
-        wilaya: '',
-        daira: '',
-        address: '',
-      },
-
-    }
-  )
-
-
-  const [banks, setBanks] = useState<BankInfo[]>([]);
-  const [selectedBank, setSelectedBank] = useState<BankInfo | null>(null);
-
-  
-// Fix the wilaya selection state handling
-const [client, setClient] = useState<Client>({
-  id: 0,
-  clientName: '',
-  brand: '',
-  phoneNumber: '',
-  mobileNumber: '',
-  location: { wilaya: '', daira: '', address: '' },
-  existingClient: false, // New field to track if the client is existing
-});
-
-// Update the wilaya selection handler
-const handleWilayaChange = (value: string) => {
-  setClient(prev => ({
-    ...prev,
-    location: { 
-      ...prev.location, 
-      wilaya: value,
-      daira: '' // Reset daira when wilaya changes
-    }
-  }));
+type Bank = {
+  id: number;
+  name: string;
+  address: string;
+  principalPhone: string;
+  status: "ACTIVE" | "INACTIVE";
+  tpes: TPE[];
+  subaccounts: SubAccount[];
 };
 
-// Update the daira selection handler
-const handleDairaChange = (value: string) => {
-  setClient(prev => ({
-    ...prev,
-    location: { 
-      ...prev.location, 
-      daira: value
-    }
-  }));
-};
+// Mock data for existing TPE brands and models
+const existingTPEBrands: TPE[] = [
+  {
+    id: 1,
+    name: "Ingenico",
+    models: [
+      { id: 1, name: "iCT250" },
+      { id: 2, name: "iWL250" },
+      { id: 3, name: "Move5000" },
+    ],
+  },
+  {
+    id: 2,
+    name: "Verifone",
+    models: [
+      { id: 4, name: "VX520" },
+      { id: 5, name: "VX680" },
+      { id: 6, name: "VX820" },
+    ],
+  },
+  {
+    id: 3,
+    name: "Pax",
+    models: [
+      { id: 7, name: "A920" },
+      { id: 8, name: "S80" },
+      { id: 9, name: "S300" },
+    ],
+  },
+];
 
-
-useEffect(() => {
-  fetchbanks()
-    .then((res) => {
-      // assuming API returns { banks: [{ id, name }, ...] }
-      setBanks(res.data.banks || []);
-    })
-    .catch((err) => {
-      console.error("Error fetching banks:", err);
-      setBanks([]);
-    });
-
-  fetchClients()
-    .then((res) => {
-      setclientsfetch(res.data.clients || []);
-    })
-    .catch((err) => {
-      console.error("Error fetching clients:", err);
-      setclientsfetch([]);
-    });
-}, []);
-
-useEffect(() => {
-  if (selectedClient) {
-    setClient({
-      ...client,
-      id: selectedClient.id,
-      clientName: selectedClient.commercialName,
-      brand: selectedClient.brand,
-      phoneNumber: selectedClient.phoneNumber,
-      location: {
-        wilaya: selectedClient.location.wilaya,
-        daira: selectedClient.location.daira,
-        address: selectedClient.location.address,
-      },
-
-    });
-  }
-}, [selectedClient]);
-
-const handleSelect = (id: number | string) => {
-    const clientsel = clientsfetch.find(c => c.id === Number(id))
-    setSelectedClient(clientsel)
-  }
-
-
-  const [unblockingData, setUnblockingData] = useState({
-    notes: "",
-    blockedReason: "",
-    tpes: [] as { id: number }[],   // only ids
+export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }) {
+  const [bank, setBank] = useState<Bank>({
+    id: Date.now(),
+    name: "",
+    address: "",
+    principalPhone: "",
+    status: "ACTIVE",
+    tpes: [],
+    subaccounts: [],
   });
-  
 
- const [interventionData, setInterventionData] = useState<InterventionData>({
-          problemCategory: '',
-          problemType: '',
-          tpeBrand: '',
-          tpeModel: '',
-          tpeSn: ''
-});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [newSub, setNewSub] = useState<SubAccount>({
+    id: Date.now(),
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+  });
 
-const [consumableData, setConsumableData] = useState<ConsumableData>({
-  items: [],
-});
+  const [tpeSelection, setTpeSelection] = useState({
+    brand: "",
+    model: "",
+    isNewBrand: false,
+    newBrandName: "",
+    newModelName: "",
+  });
 
-const handleAddConsumable = () => {
-  setConsumableData(prev => ({
-    ...prev,
-    items: [...prev.items, { type: '', quantity: 1 }]
-  }));
-};
-
-const handleRemoveConsumable = (index: number) => {
-  setConsumableData(prev => ({
-    ...prev,
-    items: prev.items.filter((_, i) => i !== index)
-  }));
-};
-
-const handleConsumableItemChange = (index: number, field: string, value: string) => {
-  setConsumableData(prev => ({
-    ...prev,
-    items: prev.items.map((item, i) => 
-      i === index ? { ...item, [field]: value } : item
-    )
-  }));
-};
-
-const handleQuantityChange = (index: number, change: number) => {
-  setConsumableData(prev => ({
-    ...prev,
-    items: prev.items.map((item, i) => {
-      if (i === index) {
-        const currentQty = item.quantity || 0;
-        const newQty = Math.max(1, currentQty + change);
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    })
-  }));
-};
-
-// Duplicate function removed to fix redeclaration error.
-
-
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
-
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [successMessage, setSuccessMessage] = useState<string>('')
-
-  const [tpes, setTpes] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchTPE()
-      .then((res) => {
-        setTpes(res.data.tpes || []); // <-- extract the array
-      })
-      .catch((err) => {
-        console.error("Error fetching TPEs:", err);
-        setTpes([]);
-      });
-  }, []);
-  
-
-
-
-
-
-
- // Validation
-// Enhanced validation function
-const validateForm = (): boolean => {
-  const newErrors: Record<string, string> = {};
-  if (activeTab !== 'unblocking') {
-
-  // Common validation for all tabs
-  if (!client.phoneNumber) {
-    newErrors.phone = "Le numéro de téléphone est obligatoire.";
-  } else if (!/^\+?\d{8,15}$/.test(client.phoneNumber)) {
-    newErrors.phone = "Numéro de téléphone invalide.";
-  }
-  if( !client.clientName) newErrors.clientName = "Le nom du client est obligatoire.";
-   if( !client.brand) newErrors.brand = "l'enseigne est obligatoire.";
-   if( !client.brand) newErrors.brand = "l'enseigne est obligatoire.";
-  if( !client.location.address) newErrors.address = "L'adresse est obligatoire.";
-     }
-  if (!description) newErrors.description = "La description est obligatoire.";
-  
-  // Tab-specific validation
-  switch (activeTab) {
-    case 'network':
-      // Add network-specific validation
-      break;
-      
-    case 'unblocking':
-      if (!unblockingData.blockedReason) {
-        newErrors.blockedReason = "La raison du blocage est obligatoire.";
-      }
-      if (unblockingData.tpes.length === 0) {
-        newErrors.tpes = "Veuillez ajouter au moins un TPE.";
-      }
-      break;
-      
-    case 'intervention':
-      if (!interventionData.problemCategory) {
-        newErrors.problemCategory = "La catégorie de problème est obligatoire.";
-      }
-      if (!interventionData.problemType) {
-        newErrors.problemType = "Le type de problème est obligatoire.";
-      }
-      if (!interventionData.tpeBrand) {
-        newErrors.tpeBrand = "La marque du TPE est obligatoire.";
-      }
-      if (!interventionData.tpeModel) {
-        newErrors.tpeModel = "Le modèle du TPE est obligatoire.";
-      }
-      if (!interventionData.tpeSn) {
-        newErrors.tpeSn = "Le numéro de série du TPE est obligatoire.";
-      }
-      break;
-      
-    case 'consumable':
-      if (consumableData.items.length === 0) {
-        newErrors.consumableItems = "Au moins un article consommable est requis.";
-      } else {
-        consumableData.items.forEach((item, index) => {
-          if (!item.type) {
-            newErrors[`item-${index}-type`] = "Le type est obligatoire.";
-          }
-          if (!item.quantity || parseInt(item.quantity) < 1) {
-            newErrors[`item-${index}-quantity`] = "La quantité doit être d'au moins 1.";
-          }
-          if (item.type === 'other' && !item.customType) {
-            newErrors[`item-${index}-customType`] = "Veuillez préciser le type.";
-          }
-        });
-      }
-      break;
-  }
-  
-  // Location validation for all tabs except unblocking
-  if (activeTab !== 'unblocking') {
-    if (!client.location.wilaya) newErrors.wilaya = "La wilaya est obligatoire.";
-    if (!client.location.daira) newErrors.daira = "La daira est obligatoire.";
-  }
-  
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
-
-
-// Reset form state
-const resetForm = () => {
-  setClient({
-    id: 0,
-    clientName: '',
-    brand: '',
-    phoneNumber: '',
-    mobileNumber: '',
-    location: {
-      wilaya: '',
-      daira: '',
-      address: ''
-    },
-    existingClient: false
-  })
-  setUnblockingData({
-    blockedReason: '',
-    notes: '',
-    tpes: []
-  })
-  setInterventionData({
-    problemCategory: '',
-    problemType: '',
-    tpeBrand: '',
-    tpeModel: '',
-    tpeSn: ''
-  })
-  setConsumableData({
-    items: []
-  })
-  setPhoto(null)
-  setPreview(null)
-  setErrors({})
-  setSuccessMessage('')
-}
-
-// Handle Submit
-const handleSubmit = async () => {
-  if (!validateForm()) return false;
-  
-  try {
-  
-    const basePayload = {
-      new_client: !client.existingClient,
-      client_id: client.existingClient ? client.id : undefined,
-      client_commercialName: client.clientName,
-      client_phoneNumber: client.phoneNumber,
-      client_brand: client.brand,
-      client_wilaya: client.location.wilaya,
-      client_daira: client.location.daira,
-      client_address: client.location.address,
-      notes: description,
-    };
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
     
-    switch (activeTab) {
-      case 'network':
-        await createNetworkCheckTicket(basePayload);
-        break;
-        
-      case 'intervention':
-        await createInterventionTicket({
-          ...basePayload,
-          tpe_model: interventionData.tpeModel,
-          tpe_serialNumber: interventionData.tpeSn,
-          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
-        });
-        break;
-        
-      case 'unblocking':
-        await createDeblockingTicket({
-          notes: description,
-          deblockingType: unblockingData.blockedReason,
-          tpes: unblockingData.tpes,
-        });
-        break;
-        
-      case 'consumable':
-        await createConsumableTicket({
-          ...basePayload,
-          consumables: consumableData.items.map(item => ({
-            type: item.type === 'other' ? item.customType || 'Autre' : item.type,
-            quantity: item.quantity
-          })),
-        });
-        break;
+    if (!bank.name) newErrors.name = "Bank name is required";
+    if (!bank.address) newErrors.address = "Address is required";
+    if (!bank.principalPhone) newErrors.principalPhone = "Phone number is required";
+    if (!/^\+?[\d\s-]{10,}$/.test(bank.principalPhone)) newErrors.principalPhone = "Invalid phone number";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateSubAccount = () => {
+    if (!newSub.name) return "Name is required";
+    if (!newSub.email) return "Email is required";
+    if (!/\S+@\S+\.\S+/.test(newSub.email)) return "Invalid email format";
+    if (!newSub.phone) return "Phone is required";
+    if (!newSub.password) return "Password is required";
+    if (newSub.password.length < 6) return "Password must be at least 6 characters";
+    return "";
+  };
+
+  const validateTPE = () => {
+    if (tpeSelection.isNewBrand) {
+      if (!tpeSelection.newBrandName) return "Brand name is required";
+      if (!tpeSelection.newModelName) return "Model name is required";
+    } else {
+      if (!tpeSelection.brand) return "Please select a brand";
+      if (!tpeSelection.model) return "Please select a model";
+    }
+    return "";
+  };
+
+  const handleAddSub = () => {
+    const error = validateSubAccount();
+    if (error) {
+      setErrors({...errors, subAccount: error});
+      return;
     }
     
-    resetForm();
-    setSuccessMessage("✅ Ticket créé avec succès !");
-    return false;
-  } catch (error) {
-    console.error(error);
-    alert("Erreur lors de la création du ticket.");
-    return false;
-  }
-};
+    setBank((prev) => ({ ...prev, subaccounts: [...prev.subaccounts, { ...newSub }] }));
+    setNewSub({ id: Date.now(), name: "", email: "", phone: "", password: "" });
+    setErrors({...errors, subAccount: ""});
+  };
 
+  const handleAddTPE = () => {
+    const error = validateTPE();
+    if (error) {
+      setErrors({...errors, tpe: error});
+      return;
+    }
 
- 
-  const handleUnblockingDataChange = (field: keyof UnblockingData, value: string) => {
-    setUnblockingData(prev => ({ ...prev, [field]: value }))
-  }
+    let brandId: number;
+    let brandName: string;
+    let modelName: string;
 
- const handleInterventionDataChange = (field: keyof InterventionData, value: string) => {
-  setInterventionData(prev => ({
-    ...prev,
-    [field]: value
-  }));
-};
+    if (tpeSelection.isNewBrand) {
+      brandId = Date.now();
+      brandName = tpeSelection.newBrandName;
+      modelName = tpeSelection.newModelName;
+    } else {
+      const selectedBrand = existingTPEBrands.find(b => b.id.toString() === tpeSelection.brand);
+      if (!selectedBrand) return;
+      
+      brandId = selectedBrand.id;
+      brandName = selectedBrand.name;
+      const selectedModel = selectedBrand.models.find(m => m.id.toString() === tpeSelection.model);
+      if (!selectedModel) return;
+      
+      modelName = selectedModel.name;
+    }
 
-  const handleConsumableDataChange = (field: keyof ConsumableData, value: any) => {
-    setConsumableData(prev => ({
+    // Check if brand already exists in bank
+    const existingBrandIndex = bank.tpes.findIndex(t => t.name === brandName);
+    
+    if (existingBrandIndex >= 0) {
+      // Add model to existing brand
+      const updatedTpes = [...bank.tpes];
+      updatedTpes[existingBrandIndex] = {
+        ...updatedTpes[existingBrandIndex],
+        models: [...updatedTpes[existingBrandIndex].models, { id: Date.now(), name: modelName }]
+      };
+      setBank(prev => ({ ...prev, tpes: updatedTpes }));
+    } else {
+      // Add new brand with model
+      setBank(prev => ({
+        ...prev,
+        tpes: [...prev.tpes, {
+          id: brandId,
+          name: brandName,
+          models: [{ id: Date.now(), name: modelName }]
+        }]
+      }));
+    }
+
+    // Reset TPE form
+    setTpeSelection({
+      brand: "",
+      model: "",
+      isNewBrand: false,
+      newBrandName: "",
+      newModelName: "",
+    });
+    setErrors({...errors, tpe: ""});
+  };
+
+  const handleSubmit = () => {
+    if (!validateForm()) return;
+    onCreate(bank);
+  };
+
+  const removeSubAccount = (id: number) => {
+    setBank(prev => ({
       ...prev,
-      [field]: field === "items" ? value as ConsumableData["items"] : value
+      subaccounts: prev.subaccounts.filter(sub => sub.id !== id)
     }));
-  }
+  };
 
-  // Tab configuration
-  const tabs = [
-    { id: 'intervention', label: 'Intervention', icon: <FaTools /> },
-    { id: 'consumable', label: 'Consommable', icon: <FaBoxOpen /> },
-    { id: 'network', label: 'Choix de réseau', icon: <FaNetworkWired /> },
-    { id: 'unblocking', label: 'Déblocage', icon: <FaUnlock /> },
-  ]
+  const removeTPE = (brandId: number, modelId?: number) => {
+    if (modelId) {
+      // Remove specific model
+      setBank(prev => ({
+        ...prev,
+        tpes: prev.tpes.map(tpe => 
+          tpe.id === brandId 
+            ? {...tpe, models: tpe.models.filter(model => model.id !== modelId)}
+            : tpe
+        ).filter(tpe => tpe.models.length > 0) // Remove brands with no models
+      }));
+    } else {
+      // Remove entire brand
+      setBank(prev => ({
+        ...prev,
+        tpes: prev.tpes.filter(tpe => tpe.id !== brandId)
+      }));
+    }
+  };
 
   return (
     <DynamicModal
-      triggerLabel="Nouvelle demande"
-      title="Nouveau Demande"
-      description="Signalez un problème ou demandez une maintenance."
+      triggerLabel="Créer une Banque"
+      title="Créer une nouvelle banque"
+      description="Remplissez les informations pour ajouter une banque"
+      cancelLabel="Annuler"
+      confirmLabel="Créer"
       onConfirm={handleSubmit}
-      onClose={resetForm}
-      confirmLabel="Soumettre le ticket"
+      size="lg"
     >
-      <div className="space-y-6">
-        {successMessage && (
-          <div className="bg-green-100 text-green-700 px-4 py-3 rounded-md">
-            {successMessage}
-          </div>
-        )}
-        {/* Ticket Type Tabs */}
-     <h1 className=" font-bold text-red-600">Choisir le type de demande * : </h1>
-
-  <nav className="relative bg-white/80 backdrop-blur-sm rounded-xl p-1  border shadow-lg border-gray-200/50">
-
-    <div className="flex gap-2  space-x-1">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => setActiveTab(tab.id as any)}
-          className={`
-            relative py-3  px-4 text-sm cursor-pointer font-medium flex items-center gap-2 
-            transition-all duration-300 ease-in-out rounded-lg
-            ${activeTab === tab.id
-              ? 'text-white shadow-lg'
-              : 'text-gray-600 hover:text-gray-900 bg-blue-200/40 hover:bg-blue-600/30'
-            }
-          `}
-        >
-
-          {/* Background for active tab with gradient */}
-          {activeTab === tab.id && (
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-700 rounded-lg z-0"></div>
-          )}
-          
-          {/* Animated circle indicator for active tab */}
-          {activeTab === tab.id && (
-            <div className="absolute -top-1 -right-1">
-              <div className="relative">
-                <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-blue-400 opacity-75"></div>
-                <div className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></div>
-              </div>
-            </div>
-          )}
-          
-          <span className="relative z-10 flex items-center gap-2">
-            {tab.icon}
-            {tab.label}
-          </span>
-          
-          {/* Hover effect for inactive tabs */}
-          {activeTab !== tab.id && (
-            <div className="absolute inset-0 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
-          )}
-        </button>
-
-      ))}
-    </div>
-    
-   
-  </nav>
-  
-
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-{/* Bank Selection */}
-<div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4  rounded-lg">
- <div className="flex flex-col gap-1">
- <label className="text-sm font-medium mb-2">Banque :</label>
-  <Select
-    onValueChange={(value) => {
-      const bank = banks.find((b) => b.id.toString() === value);
-      setSelectedBank(bank || null);
-    }}
-    value={selectedBank?.id?.toString() || ""}
-  >
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="-- Sélectionnez une banque --" />
-    </SelectTrigger>
-    <SelectContent>
-      {banks.map((b) => (
-        <SelectItem key={b.id} value={b.id.toString()}>
-          {b.name}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
- </div>
-
-</div>
-
-
-
-          {/* Common Fields */}
-          {activeTab !== 'unblocking' && (
-            <>
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4  rounded-lg">
-               <div className="flex flex-col col-span-2">
-{/* Checkbox: existing client */}
-<div className="flex items-center gap-2">
-  <label className="text-xl mb-2 font-bold text-blue-700">
-    client existant ? :
-  </label>
-  <Checkbox
-    className="checked:bg-blue-500"
-    checked={client.existingClient}
-    onCheckedChange={(checked) =>
-      setClient({ ...client, existingClient: !!checked })
-    }
-  >
-    Oui
-  </Checkbox>
-</div>
-
-{/* If existing client → show select */}
-{client.existingClient && (
-  <div className="flex items-center  gap-2">
-    <label className="text-sm py-4 font-bold text-blue-700">
-      Choisir un client :
-    </label>
-    <Select onValueChange={handleSelect}>
-      <SelectTrigger className="w-xs">
-        <SelectValue placeholder="Choose a client" />
-      </SelectTrigger>
-      <SelectContent >
-        {clientsfetch.map((c) => (
-          <SelectItem key={c.id} value={c.id.toString()}>
-            {c.commercialName}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-)}
-
-               </div>
-               
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Nom du client :</label>
-                  <Input
-                    type="text"
-                    placeholder="Mohamed Amine"
-                    className="w-full"
-                      disabled={client.existingClient}   // 🔒 block editing
-
-                    value={client.clientName}
-                    onChange={(e) => setClient({ ...client, clientName: e.target.value })}
-                  />
-                  {errors.clientName && <p className="text-red-500 text-xs mt-1">{errors.clientName}</p>}
-                </div>
-             
-
-                {/* Téléphone */}
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Téléphone :</label>
-<Input
-  type="text"
-  placeholder="+213650000000"
-  className="w-full"
-    disabled={client.existingClient}   // 🔒 block editing
-
-  value={client.phoneNumber}
-  onChange={(e) => setClient({ ...client, phoneNumber: e.target.value })}
-                />
-                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-
-                </div>
-                {/* Nom de l'enseigne */}
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Nom de l'enseigne :</label>
-                  <Input
-                    type="text"
-                    placeholder="Magasin Central"
-                    className="w-full"
-                      disabled={client.existingClient}   // 🔒 block editing
-
-                    value={client.brand}
-                    onChange={(e) => setClient({ ...client, brand: e.target.value })}
-                  />
-                  {errors.brand && <p className="text-red-500 text-xs mt-1">{errors.brand}</p>}
-                </div>
-        
-
-
-
-               {/* Wilaya Selection */}
-<div className="flex flex-col">
-  <label className="text-sm font-medium mb-2">Wilaya :</label>
-  <Select
-    value={client.location.wilaya}
-    onValueChange={handleWilayaChange}
-    disabled={client.existingClient}   // 🔒 block editing
-  >
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="-- Sélectionnez une wilaya --" />
-    </SelectTrigger>
-    <SelectContent>
-      {Object.keys(wilayas).map((w) => (
-        <SelectItem key={w} value={w}>
-          {w}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-  {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
-</div>
-
-{/* Daira Selection */}
-<div className="flex flex-col">
-  <label className="text-sm font-medium mb-2">Daira :</label>
-  <Select
-    value={client.location.daira}
-    onValueChange={handleDairaChange}
-    disabled={!client.location.wilaya && client.existingClient}  
-      disabled={client.existingClient}   // 🔒 block editing
-  >
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="-- Sélectionnez une daira --" />
-    </SelectTrigger>
-  <SelectContent>
-  {client?.location?.wilaya &&
-    wilayas[client.location.wilaya]?.map((d) => (
-      <SelectItem key={d} value={d}>
-        {d}
-      </SelectItem>
-    ))}
-</SelectContent>
-
-  </Select>
-  {errors.daira && <p className="text-red-500 text-xs mt-1">{errors.daira}</p>}
-</div>
-
-                {/* Adresse */}
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Adresse :</label>
-<Input
-  type="text"
-  placeholder="Adresse"
-  className="w-full"
-    disabled={client.existingClient}   // 🔒 block editing
-
-  value={client.location.address}
-  onChange={(e) => setClient({ ...client, location: { ...client.location, address: e.target.value } })}
-                />
-                  {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Type-Specific Fields */}
-          {activeTab !== 'network' && (
-          <div className="md:col-span-2 p-4  rounded-lg">
-          
-      
-            {activeTab === 'unblocking' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="flex flex-col">
-                    <label className="text-sm font-medium mb-2">Raison du blocage :</label>
-                    <Select
-                      onValueChange={(value) => handleUnblockingDataChange('blockedReason', value)}
-                      value={unblockingData.blockedReason}
-
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Sélectionnez une raison" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="INSTALLATION">INSTALLATION</SelectItem>
-                        <SelectItem value="REPLACEMENT">REPLACEMENT</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.blockedReason && <p className="text-red-500 text-xs mt-1">{errors.blockedReason}</p>}
-                  </div>
-
-
-
-
-                </div>
-
-{/* TPE Management Section */}
-<div className="border-t pt-6 mt-6">
-  <div className="flex justify-between items-center mb-4">
-    <h3 className="font-medium text-lg">Gestion des TPE</h3>
-  </div>
-
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    {/* Marque */}
-    <div className="flex flex-col">
-      <label className="text-sm font-medium mb-2">Marque :</label>
-      <Select
-        onValueChange={(value) => {
-          setUnblockingData((prev) => ({
-            ...prev,
-            selectedBrand: value,
-            selectedModel: "",
-            selectedSerial: "",
-          }));
-        }}
-        value={unblockingData.selectedBrand || ""}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sélectionnez une marque" />
-        </SelectTrigger>
-        <SelectContent>
-          {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
-            <SelectItem key={brand} value={brand}>
-              {brand}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-
-    {/* Modèle */}
-    <div className="flex flex-col">
-      <label className="text-sm font-medium mb-2">Modèle :</label>
-      <Select
-        onValueChange={(value) => {
-          setUnblockingData((prev) => ({
-            ...prev,
-            selectedModel: value,
-            selectedSerial: "",
-          }));
-        }}
-        value={unblockingData.selectedModel || ""}
-        disabled={!unblockingData.selectedBrand}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sélectionnez un modèle" />
-        </SelectTrigger>
-        <SelectContent>
-          {tpes
-            .filter((t) => t.manufacturer === unblockingData.selectedBrand)
-            .map((t) => t.model)
-            .filter((v, i, arr) => arr.indexOf(v) === i) // unique
-            .map((model) => (
-              <SelectItem key={model} value={model}>
-                {model}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
-    </div>
-
-    {/* Numéro de Série */}
-   {/* Numéro de Série */}
-<div className="flex flex-col">
-  <label className="text-sm font-medium mb-2">N° de Série :</label>
-  <Select
-    onValueChange={(value) => {
-      const selected = tpes.find((t) => String(t.id) === value);
-      if (!selected) return;
-
-      setUnblockingData((prev) => ({
-        ...prev,
-        selectedSerial: selected.serialNumber, // ✅ real SN
-        tpes: [...prev.tpes, { id: selected.id }], // ✅ real ID
-      }));
-    }}
-    value={unblockingData.selectedSerial || ""}
-    disabled={!unblockingData.selectedModel}
-  >
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="Sélectionnez un numéro de série" />
-    </SelectTrigger>
-    <SelectContent>
-      {tpes
-        .filter(
-          (t) =>
-            t.manufacturer === unblockingData.selectedBrand &&
-            t.model === unblockingData.selectedModel
-        )
-        .map((t) => (
-          <SelectItem key={t.id} value={String(t.id)}>
-            {t.serialNumber}
-          </SelectItem>
-        ))}
-    </SelectContent>
-  </Select>
-</div>
-
-  </div>
-
-  {/* Selected TPEs list */}
-  {unblockingData.tpes.length > 0 && (
-    <div className="mt-6 space-y-2">
-      {unblockingData.tpes.map((tpe, index) => {
-        const fullTpe = tpes.find((t) => t.id === tpe.id);
-        return (
-          <div
-            key={index}
-            className="flex justify-between items-center p-3 border rounded-lg"
-          >
-            <span>
-              {fullTpe?.manufacturer} – {fullTpe?.model} – SN:{" "}
-              <b>{fullTpe?.serialNumber}</b>
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setUnblockingData((prev) => ({
-                  ...prev,
-                  tpes: prev.tpes.filter((_, i) => i !== index),
-                }))
-              }
-              className="text-red-500 hover:text-red-700"
-            >
-              <FaTrash className="text-sm" />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  )}
-</div>
-
-
-              </div>
-            )}
-
-{activeTab === 'intervention' && (
-  <div className="space-y-6">
-    {/* Problem Type Section */}
-    <div className="bg-white p-4  border-t  ">
-      <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-800">
-        <FaExclamationTriangle className="text-orange-500" />
-        Type de problème
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Catégorie de problème :</label>
-          <Select
-            onValueChange={(value) => handleInterventionDataChange('problemCategory', value)}
-            value={interventionData.problemCategory}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez une catégorie" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hardware">Matériel</SelectItem>
-              <SelectItem value="software">Logiciel</SelectItem>
-              <SelectItem value="network">Réseau</SelectItem>
-              <SelectItem value="mechanical">Mécanique</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Type de problème :</label>
-          <Select
-            onValueChange={(value) => handleInterventionDataChange('problemType', value)}
-            value={interventionData.problemType}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez le type" />
-            </SelectTrigger>
-            <SelectContent>
-              {interventionData.problemCategory === "hardware" && (
-                <>
-                  <SelectItem value="screen_issue">Problème d'écran</SelectItem>
-                  <SelectItem value="printer_issue">Problème d'imprimante</SelectItem>
-                  <SelectItem value="card_reader_issue">Problème de lecteur de carte</SelectItem>
-                  <SelectItem value="power_issue">Problème d'alimentation</SelectItem>
-                </>
-              )}
-              {interventionData.problemCategory === "software" && (
-                <>
-                  <SelectItem value="os_issue">Problème du système d'exploitation</SelectItem>
-                  <SelectItem value="application_issue">Problème d'application</SelectItem>
-                  <SelectItem value="configuration_issue">Problème de configuration</SelectItem>
-                  <SelectItem value="update_issue">Problème de mise à jour</SelectItem>
-                </>
-              )}
-              {interventionData.problemCategory === "network" && (
-                <>
-                  <SelectItem value="connectivity_issue">Problème de connectivité</SelectItem>
-                  <SelectItem value="slow_connection">Connexion lente</SelectItem>
-                  <SelectItem value="vpn_issue">Problème VPN</SelectItem>
-                  <SelectItem value="firewall_issue">Problème de firewall</SelectItem>
-                </>
-              )}
-              {interventionData.problemCategory === "mechanical" && (
-                <>
-                  <SelectItem value="keyboard_issue">Problème de clavier</SelectItem>
-                  <SelectItem value="mechanical_part">Pièce mécanique défectueuse</SelectItem>
-                  <SelectItem value="jam_issue">Problème de bourrage papier</SelectItem>
-                  <SelectItem value="worn_part">Pièce usée</SelectItem>
-                </>
-              )}
-             {!interventionData.problemCategory && (
-  <SelectItem value="no-category" disabled>
-    Sélectionnez d'abord une catégorie
-  </SelectItem>
-)}
-
-            </SelectContent>
-          </Select>
-          {errors.problemType && <p className="text-red-500 text-xs mt-1">{errors.problemType}</p>}
-        </div>
-      </div>
-    </div>
-
-    {/* TPE Information Section */}
-    <div className="bg-white p-4  ">
-      <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-800">
-        <FaCreditCard className="text-blue-500" />
-        Informations TPE
-      </h3>
-      <div className="grid grid-cols-2 gap-4 ">
-  {/* Marque */}
-<Select
-  value={interventionData.tpeBrand}
-  onValueChange={(value) => handleInterventionDataChange("tpeBrand", value)}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez une marque" />
-  </SelectTrigger>
-  <SelectContent>
-    {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
-      <SelectItem key={brand} value={brand}>
-        {brand}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-
-{/* Modèle */}
-<Select
-  value={interventionData.tpeModel}
-  onValueChange={(value) => handleInterventionDataChange("tpeModel", value)}
-  disabled={!interventionData.tpeBrand}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez un modèle" />
-  </SelectTrigger>
-  <SelectContent>
-    {tpes
-      .filter((t) => t.manufacturer === interventionData.tpeBrand)
-      .map((t) => (
-        <SelectItem key={t.model} value={t.model}>
-          {t.model}
-        </SelectItem>
-      ))}
-  </SelectContent>
-</Select>
-
-{/* Numéro de série */}
-<Select
-  value={interventionData.tpeSn}
-  onValueChange={(value) => handleInterventionDataChange("tpeSn", value)}
-  disabled={!interventionData.tpeModel}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez un SN" />
-  </SelectTrigger>
-  <SelectContent>
-    {tpes
-      .filter(
-        (t) =>
-          t.manufacturer === interventionData.tpeBrand &&
-          t.model === interventionData.tpeModel
-      )
-      .map((t) => (
-        <SelectItem key={t.serialNumber} value={t.serialNumber}>
-          {t.serialNumber}
-        </SelectItem>
-      ))}
-  </SelectContent>
-</Select>
-</div>
-
-        
-       
-      </div>
-    </div>
-
-)}
-
-          {activeTab === 'consumable' && (
-  <div className="space-y-6">
-
-
-  {/* Consumable Items Section */}
-  <div className="bg-white p-4 rounded-lg border shadow-sm">
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="font-semibold text-lg flex items-center gap-2 text-gray-800">
-        <FaBoxOpen className="text-purple-500" />
-          Articles consommables
-        </h3>
-        <Button 
-          type="button" 
-          onClick={() => handleAddConsumable()}
-          className="flex items-center gap-2"
-          variant="outline"
-        >
-          <FaPlus className="text-sm" />
-          Ajouter un article
-        </Button>
-      </div>
-
-      {consumableData.items && consumableData.items.length > 0 ? (
+      <div className="space-y-6 p-2 max-h-[70vh] overflow-y-auto">
+        {/* Bank Info */}
         <div className="space-y-4">
-          {consumableData.items.map((item, index) => (
-            <div key={index} className="p-4 border rounded-lg bg-gray-50 relative">
-              <button
-                type="button"
-                onClick={() => handleRemoveConsumable(index)}
-                className="absolute top-3 right-3 text-red-500 hover:text-red-700"
-              >
-                <FaTrash className="text-sm" />
-              </button>
-              
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <FaBox className="text-gray-500" />
-                Article #{index + 1}
-              </h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Type de consommable :</label>
-                  <Select
-                    onValueChange={(value) => handleConsumableItemChange(index, 'type', value)}
-                    value={item.type}
+          <h3 className="font-semibold flex items-center gap-2">
+            <Building className="h-5 w-5" />
+            Informations de la Banque
+          </h3>
+          
+          <div className="space-y-2">
+            <Label htmlFor="bank-name">Nom de la Banque *</Label>
+            <Input
+              id="bank-name"
+              value={bank.name}
+              onChange={(e) => setBank({ ...bank, name: e.target.value })}
+              placeholder="Ex: Banque Nationale d'Algérie"
+              className={errors.name ? "border-red-500" : ""}
+            />
+            {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-address">Adresse *</Label>
+            <Input
+              id="bank-address"
+              value={bank.address}
+              onChange={(e) => setBank({ ...bank, address: e.target.value })}
+              placeholder="Ex: 1 Boulevard Colonel Amirouche, Alger"
+              className={errors.address ? "border-red-500" : ""}
+            />
+            {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-phone">Téléphone principal *</Label>
+            <Input
+              id="bank-phone"
+              value={bank.principalPhone}
+              onChange={(e) => setBank({ ...bank, principalPhone: e.target.value })}
+              placeholder="+213 ..."
+              className={errors.principalPhone ? "border-red-500" : ""}
+            />
+            {errors.principalPhone && <p className="text-red-500 text-sm">{errors.principalPhone}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-status">Status</Label>
+            <Select
+              value={bank.status}
+              onValueChange={(val: "ACTIVE" | "INACTIVE") => setBank({ ...bank, status: val })}
+            >
+              <SelectTrigger id="bank-status">
+                <SelectValue placeholder="Choisir le status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Subaccounts */}
+        <div className="space-y-4 border-t pt-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Sous-comptes
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="sub-name">Nom *</Label>
+              <Input
+                id="sub-name"
+                placeholder="Nom complet"
+                value={newSub.name}
+                onChange={(e) => setNewSub({ ...newSub, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sub-email">Email *</Label>
+              <Input
+                id="sub-email"
+                placeholder="adresse@email.com"
+                value={newSub.email}
+                onChange={(e) => setNewSub({ ...newSub, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sub-phone">Téléphone *</Label>
+              <Input
+                id="sub-phone"
+                placeholder="+213 ..."
+                value={newSub.phone}
+                onChange={(e) => setNewSub({ ...newSub, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sub-password">Mot de passe *</Label>
+              <Input
+                id="sub-password"
+                type="password"
+                placeholder="Min. 6 caractères"
+                value={newSub.password}
+                onChange={(e) => setNewSub({ ...newSub, password: e.target.value })}
+              />
+            </div>
+          </div>
+          
+          {errors.subAccount && <p className="text-red-500 text-sm">{errors.subAccount}</p>}
+          
+          <Button variant="outline" size="sm" onClick={handleAddSub} className="flex items-center gap-1">
+            <Plus className="h-4 w-4" />
+            Ajouter Sous-compte
+          </Button>
+
+          {bank.subaccounts.length > 0 && (
+            <div className="border rounded-lg divide-y">
+              {bank.subaccounts.map((sub) => (
+                <div key={sub.id} className="p-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{sub.name}</p>
+                    <p className="text-sm text-gray-500">{sub.email} • {sub.phone}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSubAccount(sub.id)}
+                    className="text-red-500 hover:text-red-700"
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sélectionnez le type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TONER">Toner</SelectItem>
-                      <SelectItem value="PAPIER">Papier</SelectItem>
-                      <SelectItem value="RUBAN">Ruban</SelectItem>
-                      <SelectItem value="CARTOUCHE">Cartouche</SelectItem>
-                      <SelectItem value="KIT_DE_NETTOYAGE">Kit de nettoyage</SelectItem>
-                      <SelectItem value="AUTRE">Autre</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors[`item-${index}-type`] && (
-                    <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-type`]}</p>
-                  )}
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-2">Quantité :</label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      onClick={() => handleQuantityChange(index, -1)}
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                    >
-                      <FaMinus className="text-sm" />
-                    </Button>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="0"
-                      value={item.quantity}
-                      onChange={(e) => handleConsumableItemChange(index, 'quantity', e.target.value)}
-                      className="w-full text-center"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => handleQuantityChange(index, 1)}
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                    >
-                      <FaPlus className="text-sm" />
-                    </Button>
-                  </div>
-                  {errors[`item-${index}-quantity`] && (
-                    <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-quantity`]}</p>
-                  )}
-                </div>
-
-                {item.type === 'other' && (
-                  <div className="md:col-span-2 flex flex-col">
-                    <label className="text-sm font-medium mb-2">Précisez le type :</label>
-                    <Input
-                      type="text"
-                      placeholder="Spécifiez le type de consommable"
-                      value={item.customType || ''}
-                      onChange={(e) => handleConsumableItemChange(index, 'customType', e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                )}
+        {/* TPEs */}
+        <div className="space-y-4 border-t pt-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Terminaux de Paiement Électronique (TPE)
+          </h3>
+          
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              type="checkbox"
+              id="new-brand"
+              checked={tpeSelection.isNewBrand}
+              onChange={(e) => setTpeSelection({...tpeSelection, isNewBrand: e.target.checked, brand: "", model: ""})}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="new-brand" className="text-sm">Nouvelle marque</Label>
+          </div>
+          
+          {!tpeSelection.isNewBrand ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="tpe-brand">Marque existante</Label>
+                <Select
+                  value={tpeSelection.brand}
+                  onValueChange={(value) => setTpeSelection({...tpeSelection, brand: value, model: ""})}
+                >
+                  <SelectTrigger id="tpe-brand">
+                    <SelectValue placeholder="Sélectionner une marque" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingTPEBrands.map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id.toString()}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tpe-model">Modèle</Label>
+                <Select
+                  value={tpeSelection.model}
+                  onValueChange={(value) => setTpeSelection({...tpeSelection, model: value})}
+                  disabled={!tpeSelection.brand}
+                >
+                  <SelectTrigger id="tpe-model">
+                    <SelectValue placeholder="Sélectionner un modèle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingTPEBrands
+                      .find(b => b.id.toString() === tpeSelection.brand)
+                      ?.models.map((model) => (
+                        <SelectItem key={model.id} value={model.id.toString()}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center p-6 border-2 border-dashed rounded-lg bg-gray-50">
-          <FaInfoCircle className="mx-auto text-gray-400 text-2xl mb-2" />
-          <p className="text-gray-500">Aucun article ajouté. Cliquez sur "Ajouter un article" pour commencer.</p>
-        </div>
-      )}
-    </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="new-tpe-brand">Nouvelle marque *</Label>
+                <Input
+                  id="new-tpe-brand"
+                  placeholder="Nom de la nouvelle marque"
+                  value={tpeSelection.newBrandName}
+                  onChange={(e) => setTpeSelection({...tpeSelection, newBrandName: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="new-tpe-model">Nouveau modèle *</Label>
+                <Input
+                  id="new-tpe-model"
+                  placeholder="Nom du modèle"
+                  value={tpeSelection.newModelName}
+                  onChange={(e) => setTpeSelection({...tpeSelection, newModelName: e.target.value})}
+                />
+              </div>
+            </div>
+          )}
+          
+          {errors.tpe && <p className="text-red-500 text-sm">{errors.tpe}</p>}
+          
+          <Button variant="outline" size="sm" onClick={handleAddTPE} className="flex items-center gap-1">
+            <Plus className="h-4 w-4" />
+            Ajouter TPE
+          </Button>
 
-
-
-    {/* Summary */}
-    {consumableData.items && consumableData.items.length > 0 && (
-      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-        <h3 className="font-semibold text-lg mb-3 flex items-center gap-2 text-blue-800">
-          <FaClipboardCheck className="text-blue-500" />
-          Récapitulatif
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm font-medium text-blue-700">Total des articles :</p>
-            <p className="text-lg font-bold text-blue-900">
-              {consumableData.items.reduce((total, item) => total + parseInt(item.quantity || '0'), 0)}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-blue-700">Types demandés :</p>
-            <p className="text-sm text-blue-900">
-              {Array.from(new Set(consumableData.items.map(item => 
-                item.type === 'other' ? item.customType : item.type
-              ))).join(', ')}
-            </p>
-          </div>
-        </div>
-      </div>
-    )}
-                
-  </div>
-)}
-          </div>
-  )}
-          {/* Description (common to all types) */}
-          <div className="md:col-span-2 flex flex-col">
-            <label className="text-sm font-medium mb-2">Description :</label>
-            <Textarea
-              placeholder="Décrivez le problème ou la demande en détail..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full"
-              rows={4}
-            />
-            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
-          </div>
+          {bank.tpes.length > 0 && (
+            <div className="border rounded-lg divide-y">
+              {bank.tpes.map((tpe) => (
+                <div key={tpe.id} className="p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium">{tpe.name}</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTPE(tpe.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="pl-4 space-y-2">
+                    {tpe.models.map((model) => (
+                      <div key={model.id} className="flex justify-between items-center">
+                        <span className="text-sm">{model.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTPE(tpe.id, model.id)}
+                          className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </DynamicModal>
-  )
+  );
 }
