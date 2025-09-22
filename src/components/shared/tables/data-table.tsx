@@ -29,6 +29,7 @@ export function DataTable<TData extends Record<string, any>, TValue>({
   columns,
   data,
   filters,
+  className,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [filterState, setFilterState] = useState<Record<string, string>>({})

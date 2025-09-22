@@ -5,7 +5,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Ticket } from "@/types/ticket";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { TicketDetailsButton } from "../../modal/intervention/tickitsdetailsButton";
+import { TicketDetailsButton } from "../../modal/interventionBank/tickitsdetailsButton";
 
 // Columns for tickets (TickitColumns)
 export const TickitColumns: ColumnDef<Ticket>[] = [

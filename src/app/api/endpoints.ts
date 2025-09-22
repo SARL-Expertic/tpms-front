@@ -13,4 +13,6 @@ export const ENDPOINTS = {
   TPES_MANAGER: '/api/account-manager/tpe',
   CLIENTS_MANAGER: '/api/account-manager/client',
   BANKS:'/api/account-manager/bank',
+
+  TPEMODELS: '/api/account-manager/terminal-type',
 };

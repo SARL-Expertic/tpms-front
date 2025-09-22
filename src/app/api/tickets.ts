@@ -186,3 +186,6 @@ export async function fetchConsumableConstatData() {
 
 
 export const fetchConsumables = () =>fetchConsumableConstatData();
+
+
+export const fetchtpetypes = () => api.get(ENDPOINTS.TPEMODELS);

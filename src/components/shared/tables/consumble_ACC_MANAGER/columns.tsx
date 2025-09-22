@@ -38,25 +38,7 @@ export const ConsumableColumns: ColumnDef<ConsumableRow>[] = [
       );
     },
   },
-  {
-    accessorKey: "reserved",
-    header: "Reserved",
-    cell: ({ row }) => {
-      const consumable = row.original;
-
-      return (
-        <input
-          type="number"
-          className="w-20 border rounded px-2 py-1"
-          value={consumable.reserved}
-          onChange={(e) => {
-            // TODO: API call to update reserved
-            console.log("Update reserved", consumable.id, e.target.value);
-          }}
-        />
-      );
-    },
-  },
+  
   {
     header: "Actions",
     cell: ({ row }) => {
