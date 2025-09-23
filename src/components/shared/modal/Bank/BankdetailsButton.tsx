@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, User, Mail, Trash2, Plus, CreditCard, Building } from "lucide-react";
+import { AlertCircle, User, Mail, Trash2, Plus, CreditCard, Building, Phone, MapPin } from "lucide-react";
 
 type Subaccount = {
   id: number;
@@ -30,8 +30,18 @@ type TpeBrand = {
 
 type Bank = {
   id: number;
+  code: string;
   name: string;
   status?: string;
+  phoneNumber?: string;
+  currentLocation?: {
+    id: number;
+    name: string;
+    address: string;
+    wilaya: string;
+    daira: string;
+    localite: string;
+  };
   subaccounts: Subaccount[];
   tpes: TpeBrand[];
 };
@@ -229,68 +239,113 @@ export function BankDetailsButton({ bank, onSave }: Props) {
             <TabsTrigger value="tpes">Terminaux TPE</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="info" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5 text-blue-600" />
-                  Informations de la Banque
-                </CardTitle>
-                <CardDescription>
-                  Détails de base de la banque
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between gap-6 items-center">
-                  <div className="flex items-center w-full gap-6">
-                    {isEditing ? (
-                      <Input
-                        value={editedBank.name}
-                        onChange={(e) => handleChange("name", e.target.value)}
-                        className="text-xl w-full font-bold"
+        <TabsContent value="info" className="space-y-4 mt-4">
+  <Card>
+    <CardHeader className="pb-3">
+      <CardTitle className="flex items-center gap-2">
+        <Building className="h-5 w-5 text-blue-600" />
+        Informations de la Banque
+      </CardTitle>
+      <CardDescription>
+        Détails de base de la banque
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent className="space-y-6">
+      {/* Bank Name + Status */}
+      <div className="flex justify-between gap-6 items-center">
+        <div className="flex items-center w-full gap-6">
+          {isEditing ? (
+            <Input
+              value={editedBank.name}
+              onChange={(e) => handleChange("name", e.target.value)}
+              className="text-xl w-full font-bold"
+            />
+          ) : (
+            <h2 className="text-xl font-bold text-foreground">{bank.name}</h2>
+          )}
+        </div>
+
+        {bank.status && (
+          isEditing ? (
+            <Select
+              value={editedBank.status}
+              onValueChange={(value) => handleChange("status", value)}
+            >
+              <SelectTrigger
+                className={`w-[140px] ${statusColorMap[editedBank.status || ""]}`}
+              >
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`h-2 w-2 rounded-full ${statusColorMap[option]}`}
                       />
-                    ) : (
-                      <h2 className="text-xl font-bold text-foreground">
-                        {bank.name}
-                      </h2>
-                    )}
-                  </div>
-                  {bank.status && (
-                    isEditing ? (
-                      <Select 
-                        value={editedBank.status} 
-                        onValueChange={(value) => handleChange("status", value)}
-                      >
-                        <SelectTrigger className={`w-[140px] ${statusColorMap[editedBank.status || ""]}`}>
-                          <SelectValue placeholder="Statut" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map(option => (
-                            <SelectItem key={option} value={option}>
-                              <div className="flex items-center gap-2">
-                                <div className={`h-2 w-2 rounded-full ${statusColorMap[option]}`} />
-                                {option}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge
-                        className={`flex items-center ${
-                          statusColorMap[bank.status] || "bg-gray-500"
-                        } gap-2 px-3 py-2 text-sm`}
-                      >
-                        <div className="h-2 w-2 rounded-full bg-white" />
-                        {bank.status}
-                      </Badge>
-                    )
-                  )}
-                </div>
-                <p className="text-muted-foreground">ID: {bank.id}</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                      {option}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Badge
+              className={`flex items-center ${
+                statusColorMap[bank.status] || "bg-gray-500"
+              } gap-2 px-3 py-2 text-sm`}
+            >
+              <div className="h-2 w-2 rounded-full bg-white" />
+              {bank.status}
+            </Badge>
+          )
+        )}
+      </div>
+
+      {/* ID + Code */}
+      <div className="space-y-2">
+        <p className="text-muted-foreground">ID: {bank.id}</p>
+        <p className="text-muted-foreground">Code: {bank.code}</p>
+      </div>
+
+      {/* Phone Number */}
+      {bank.phoneNumber && (
+        <div className="flex items-center gap-2">
+          <Phone className="h-4 w-4 text-muted-foreground" />
+          {isEditing ? (
+            <Input
+              value={editedBank.phoneNumber}
+              onChange={(e) => handleChange("phoneNumber", e.target.value)}
+              className="w-[200px]"
+              placeholder="Numéro de téléphone"
+            />
+          ) : (
+            <p className="text-muted-foreground">{bank.phoneNumber}</p>
+          )}
+        </div>
+      )}
+
+      {/* Location */}
+      {bank.currentLocation && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold">{bank.currentLocation.name}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {bank.currentLocation.address}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {bank.currentLocation.localite}, {bank.currentLocation.daira},{" "}
+            {bank.currentLocation.wilaya}
+          </p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
+
           
           <TabsContent value="subaccounts" className="mt-4">
             <Card>
@@ -385,7 +440,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                   <CreditCard className="h-5 w-5 text-orange-600" />
                   Terminaux TPE
                   <Badge variant="secondary" className="ml-2">
-                    {bank.tpes.reduce((acc, tpe) => acc + tpe.models.length, 0)}
+{(bank.tpes ?? []).reduce((acc, tpe) => acc + (tpe.models?.length ?? 0), 0)}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
@@ -451,7 +506,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                             )}
                           </div>
                           
-                          {brand.models.length > 0 ? (
+                          {brand.models?.length > 0 ? (
                             <div className="grid gap-2">
                               {brand.models.map((model, modelIndex) => (
                                 <div key={model.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">

@@ -76,44 +76,37 @@ export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }
 
   const [tpeSelection, setTpeSelection] = useState({
     brand: "",
-    model: "",
-    isNewBrand: false,
-    newBrandName: "",
-    newModelName: "",
+    model: ""
   });
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!bank.name) newErrors.name = "Bank name is required";
-    if (!bank.address) newErrors.address = "Address is required";
-    if (!bank.principalPhone) newErrors.principalPhone = "Phone number is required";
-    if (!/^\+?[\d\s-]{10,}$/.test(bank.principalPhone)) newErrors.principalPhone = "Invalid phone number";
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+const validateForm = () => {
+  const newErrors: Record<string, string> = {};
+  
+  if (!bank.name) newErrors.name = "Le nom de la banque est requis";
+  if (!bank.address) newErrors.address = "L'adresse est requise";
+  if (!bank.principalPhone) newErrors.principalPhone = "Le numéro de téléphone est requis";
+  if (!/^\+?[\d\s-]{10,}$/.test(bank.principalPhone)) newErrors.principalPhone = "Numéro de téléphone invalide";
+  
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
-  const validateSubAccount = () => {
-    if (!newSub.name) return "Name is required";
-    if (!newSub.email) return "Email is required";
-    if (!/\S+@\S+\.\S+/.test(newSub.email)) return "Invalid email format";
-    if (!newSub.phone) return "Phone is required";
-    if (!newSub.password) return "Password is required";
-    if (newSub.password.length < 6) return "Password must be at least 6 characters";
-    return "";
-  };
+const validateSubAccount = () => {
+  if (!newSub.name) return "Le nom est requis";
+  if (!newSub.email) return "L'email est requis";
+  if (!/\S+@\S+\.\S+/.test(newSub.email)) return "Format de l'email invalide";
+  if (!newSub.phone) return "Le numéro de téléphone est requis";
+  if (!newSub.password) return "Le mot de passe est requis";
+  if (newSub.password.length < 6) return "Le mot de passe doit contenir au moins 6 caractères";
+  return "";
+};
 
-  const validateTPE = () => {
-    if (tpeSelection.isNewBrand) {
-      if (!tpeSelection.newBrandName) return "Brand name is required";
-      if (!tpeSelection.newModelName) return "Model name is required";
-    } else {
-      if (!tpeSelection.brand) return "Please select a brand";
-      if (!tpeSelection.model) return "Please select a model";
-    }
-    return "";
-  };
+const validateTPE = () => {
+  if (!tpeSelection.brand) return "Veuillez sélectionner une marque";
+  if (!tpeSelection.model) return "Veuillez sélectionner un modèle";
+  return "";
+};
+
 
   const handleAddSub = () => {
     const error = validateSubAccount();
@@ -138,21 +131,13 @@ export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }
     let brandName: string;
     let modelName: string;
 
-    if (tpeSelection.isNewBrand) {
-      brandId = Date.now();
-      brandName = tpeSelection.newBrandName;
-      modelName = tpeSelection.newModelName;
-    } else {
-      const selectedBrand = existingTPEBrands.find(b => b.id.toString() === tpeSelection.brand);
-      if (!selectedBrand) return;
-      
-      brandId = selectedBrand.id;
-      brandName = selectedBrand.manufacturer;
-      const selectedModel = selectedBrand.model.find(m => m.id.toString() === tpeSelection.model);
-      if (!selectedModel) return;
-      
-      modelName = selectedModel.name;
-    }
+    const selectedBrand = existingTPEBrands.find(b => b.id.toString() === tpeSelection.brand);
+    if (!selectedBrand) return;
+    brandId = selectedBrand.id;
+    brandName = selectedBrand.manufacturer;
+    const selectedModel = selectedBrand.model.find(m => m.id.toString() === tpeSelection.model);
+    if (!selectedModel) return;
+    modelName = selectedModel.name;
 
     // Check if brand already exists in bank
     const existingBrandIndex = bank.tpes.findIndex(t => t.manufacturer === brandName);
@@ -180,17 +165,15 @@ export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }
     // Reset TPE form
     setTpeSelection({
       brand: "",
-      model: "",
-      isNewBrand: false,
-      newBrandName: "",
-      newModelName: "",
+      model: ""
     });
     setErrors({...errors, tpe: ""});
   };
 
   const handleSubmit = () => {
-    if (!validateForm()) return;
-    onCreate(bank);
+  if (!validateForm()) return false;
+  onCreate(bank);
+  return true;
   };
 
   const removeSubAccount = (id: number) => {
@@ -233,7 +216,6 @@ export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }
       cancelLabel="Annuler"
       confirmLabel="Créer"
       onConfirm={handleSubmit}
-      size="xl"
     >
       <div className="space-y-6 p-1 max-h-[70vh] overflow-y-auto">
         <Tabs defaultValue="bank-info" className="w-full">
@@ -471,89 +453,47 @@ export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-md">
-                  <input
-                    type="checkbox"
-                    id="new-brand"
-                    checked={tpeSelection.isNewBrand}
-                    onChange={(e) => setTpeSelection({...tpeSelection, isNewBrand: e.target.checked, brand: "", model: ""})}
-                    className="h-4 w-4 text-blue-600"
-                  />
-                  <Label htmlFor="new-brand" className="text-sm cursor-pointer">
-                    Ajouter une nouvelle marque
-                  </Label>
-                </div>
-                
-                {!tpeSelection.isNewBrand ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="tpe-brand">Marque existante</Label>
-                      <Select
-                        value={tpeSelection.brand}
-                        onValueChange={(value) => setTpeSelection({...tpeSelection, brand: value, model: ""})}
-                      >
-                        <SelectTrigger id="tpe-brand">
-                          <SelectValue placeholder="Sélectionner une marque" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {existingTPEBrands.map((brand) => (
-                            <SelectItem key={brand.id} value={brand.id.toString()}>
-                              {brand.manufacturer}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tpe-brand">Marque existante</Label>
+                    <Select
+                      value={tpeSelection.brand}
+                      onValueChange={(value) => setTpeSelection({...tpeSelection, brand: value, model: ""})}
+                    >
+                      <SelectTrigger id="tpe-brand">
+                        <SelectValue placeholder="Sélectionner une marque" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {existingTPEBrands.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id.toString()}>
+                            {brand.manufacturer}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tpe-model">Modèle</Label>
+                    <Select
+                      value={tpeSelection.model}
+                      onValueChange={(value) => setTpeSelection({...tpeSelection, model: value})}
+                      disabled={!tpeSelection.brand}
+                    >
+                      <SelectTrigger id="tpe-model">
+                        <SelectValue placeholder="Sélectionner un modèle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {existingTPEBrands
+                          .find(b => b.id.toString() === tpeSelection.brand)
+                          ?.model.map((model1) => (
+                            <SelectItem key={model1.id} value={model1.id.toString()}>
+                              {model1.name}
                             </SelectItem>
                           ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="tpe-model">Modèle</Label>
-                      <Select
-                        value={tpeSelection.model}
-                        onValueChange={(value) => setTpeSelection({...tpeSelection, model: value})}
-                        disabled={!tpeSelection.brand}
-                      >
-                        <SelectTrigger id="tpe-model">
-                          <SelectValue placeholder="Sélectionner un modèle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {existingTPEBrands
-                            .find(b => b.id.toString() === tpeSelection.brand)
-                            ?.model.map((model1) => (
-                              <SelectItem key={model1.id} value={model1.id.toString()}>
-                                {model1.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      </SelectContent>
+                    </Select>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="new-tpe-brand" className="flex items-center gap-1">
-                        Nouvelle marque <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="new-tpe-brand"
-                        placeholder="Nom de la nouvelle marque"
-                        value={tpeSelection.newBrandName}
-                        onChange={(e) => setTpeSelection({...tpeSelection, newBrandName: e.target.value})}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new-tpe-model" className="flex items-center gap-1">
-                        Nouveau modèle <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="new-tpe-model"
-                        placeholder="Nom du modèle"
-                        value={tpeSelection.newModelName}
-                        onChange={(e) => setTpeSelection({...tpeSelection, newModelName: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                )}
+                </div>
                 
                 {errors.tpe && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">

@@ -26,15 +26,21 @@ export default function TickitsTable() {
     return map[TYPE] || TYPE;
   }
 
-
-  const entofr_status = (STATUS: string): string => {
+const entofr_status = (STATUS: string): string => {
     const map: Record<string, string> = {
+      "REQUESTED": "DEMANDÉ",
+      "PENDING": "EN ATTENTE", 
+      "ASSIGNED": "ASSIGNÉ",
+      "HIDDEN_PENDING_APPROVAL": "EN ATTENTE D'APPROBATION (MASQUÉ)",
+      "HIDDEN": "MASQUÉ",
+      "CLIENT_PROBLEM": "PROBLÈME CLIENT",
       "COMPLETED": "CLOTURÉ",
-      "IN_PROGRESS": "EN COURS",
-      "PENDING": "EN ATTENTE",
+      "DELIVERED": "LIVRÉ", 
+      "CANCELLED": "ANNULÉ",
+      "IN_PROGRESS": "EN COURS"
     };
     return map[STATUS] || STATUS;
-  }
+};
 
   useEffect(() => {
     fetchTickets_Manager()
@@ -48,9 +54,12 @@ export default function TickitsTable() {
           brand: ticket?.tpe?.manufacturer ?? '-',
           bank: ticket?.bank?.name ?? '-',
           tpe: {
+            tpetype: ticket?.tpe?.terminalType?.id ?? '-',
             serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
-            model: ticket?.tpe?.model ?? '-',
-            brand: ticket?.tpe?.manufacturer ?? '-',
+            brand: ticket?.tpe?.terminalType?.manufacturer?.name ?? '-',
+            id_brand: ticket?.tpe?.terminalType?.manufacturer?.id ?? '',
+            model: ticket?.tpe?.terminalType?.model?.name ?? '-',
+            id_model: ticket?.tpe?.terminalType?.model?.id ?? '',          
           },
           deblockingOrder: ticket?.deblockingOrder ? {
             id: ticket?.deblockingOrder?.id ?? '',

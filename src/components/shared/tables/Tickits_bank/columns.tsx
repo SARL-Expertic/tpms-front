@@ -39,11 +39,18 @@ export const TickitColumns: ColumnDef<Ticket>[] = [
     header: "STATUT",
     cell: ({ row }) => {
       const status = row.original.status;
-      const colorMap: Record<string, string> = {
-        "CLOTURÉ": "text-green-600 text-2xl",
-        "EN COURS": "text-orange-500",
-        "EN ATTENTE": "text-blue-500",
-      };
+    const colorMap: Record<string, string> = {
+  "CLOTURÉ": "text-green-600 text-2xl",
+  "EN COURS": "text-orange-500",
+  "EN ATTENTE": "text-blue-500",
+  "DEMANDÉ": "text-gray-500",
+  "ASSIGNÉ": "text-purple-500",
+  "EN ATTENTE D'APPROBATION (MASQUÉ)": "text-yellow-500",
+  "MASQUÉ": "text-gray-400",
+  "PROBLÈME CLIENT": "text-red-500",
+  "LIVRÉ": "text-green-500",
+  "ANNULÉ": "text-red-600"
+};
       return (
         <div className="flex items-center gap-2">
           <span className={`text-3xl flex items-center leading-none ${colorMap[status]}`}>•</span>
@@ -89,7 +96,13 @@ export const TickitColumns: ColumnDef<Ticket>[] = [
    {
   header: 'Actions',
   cell: ({ row }) => (
-    <TicketDetailsButton ticket={row.original} />
+    <TicketDetailsButton
+      ticket={row.original}
+      onSave={(updatedTicket) => {
+        // Implement your save logic here, e.g., update state or make an API call
+        console.log("Ticket saved:", updatedTicket);
+      }}
+    />
   )
 }
 

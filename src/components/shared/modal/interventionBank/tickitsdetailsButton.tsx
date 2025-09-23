@@ -17,9 +17,16 @@ type Props = {
 };
 
 const statusColorMap: Record<string, string> = {
-  "CLOTURÉ": "bg-green-600",
+   "CLOTURÉ": "bg-green-600 text-2xl",
   "EN COURS": "bg-orange-500",
   "EN ATTENTE": "bg-blue-500",
+  "DEMANDÉ": "bg-gray-500",
+  "ASSIGNÉ": "bg-purple-500",
+  "EN ATTENTE D'APPROBATION (MASQUÉ)": "bg-yellow-500",
+  "MASQUÉ": "bg-gray-400",
+  "PROBLÈME CLIENT": "bg-red-500",
+  "LIVRÉ": "bg-green-500",
+  "ANNULÉ": "bg-red-600"
 };
 
 const statusOptions = ["CLOTURÉ", "EN COURS", "EN ATTENTE"];
@@ -144,7 +151,7 @@ export function TicketDetailsButton({ ticket, onSave }: Props) {
                 </SelectContent>
               </Select>
             ) : (
-              <Badge className={`flex items-center ${statusColorMap[status]} gap-2 px-3 py-2 text-sm`}>
+              <Badge className={`flex items-center font-semibold ${statusColorMap[status]} gap-2 px-3 py-2 text-sm`}>
                 <span className={`h-2 w-2 rounded-full bg-white`} />
                 {status}
               </Badge>

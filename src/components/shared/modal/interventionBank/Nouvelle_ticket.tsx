@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, fetchTPE } from "@/app/api/tickets"
+import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, fetchTPE } from "@/app/api/tickets"
 import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "date-fns"
@@ -154,7 +154,7 @@ useEffect(() => {
       setBanks([]);
     });
 
-  fetchClients()
+  clientfetch(selectedBank ? selectedBank.id : 1)  // Default to bank ID 1 if none selected
     .then((res) => {
       setclientsfetch(res.data.clients || []);
     })
@@ -162,7 +162,7 @@ useEffect(() => {
       console.error("Error fetching clients:", err);
       setclientsfetch([]);
     });
-}, []);
+}, [banks]);
 
 useEffect(() => {
   if (selectedClient) {
@@ -397,6 +397,7 @@ const handleSubmit = async () => {
   try {
   
     const basePayload = {
+      bank_id: selectedBank ? selectedBank.id : null,
       new_client: !client.existingClient,
       client_id: client.existingClient ? client.id : undefined,
       client_commercialName: client.clientName,
@@ -424,6 +425,7 @@ const handleSubmit = async () => {
         
       case 'unblocking':
         await createDeblockingTicket({
+          bank_id: selectedBank ? selectedBank.id : null,
           notes: description,
           deblockingType: unblockingData.blockedReason,
           tpes: unblockingData.tpes,
@@ -554,13 +556,18 @@ const handleSubmit = async () => {
 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4  rounded-lg">
  <div className="flex flex-col gap-1">
  <label className="text-sm font-medium mb-2">Banque :</label>
-  <Select
-    onValueChange={(value) => {
-      const bank = banks.find((b) => b.id.toString() === value);
-      setSelectedBank(bank || null);
-    }}
-    value={selectedBank?.id?.toString() || ""}
-  >
+<Select
+  onValueChange={(value) => {
+    const bank = banks.find((b) => b.id.toString() === value);
+    if (bank) {
+      setSelectedBank({ id: bank.id, name: bank.name }); // store only id + name
+    } else {
+      setSelectedBank(null);
+    }
+  }}
+  value={selectedBank?.id?.toString() || ""} 
+>
+
     <SelectTrigger className="w-full">
       <SelectValue placeholder="-- Sélectionnez une banque --" />
     </SelectTrigger>

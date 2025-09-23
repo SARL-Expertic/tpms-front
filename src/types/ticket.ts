@@ -7,7 +7,9 @@ export interface Ticket {
   tpe: {
     serialNumber: string;
     model: string;
+    id_model: string;
     brand: string;
+    id_brand: string;
   };
   client: {
     id: string;

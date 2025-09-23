@@ -4,6 +4,7 @@ import { ENDPOINTS } from './endpoints';
 
 // Shared interfaces for client fields
 interface ClientBase {
+  bank_id?: number | null;
   client_commercialName: string;
   client_phoneNumber: string;
   client_brand: string;
@@ -39,88 +40,15 @@ type TPE = {
   models: TPEModel[];
 };
 
-type Bank = {
-  id: number;
-  name: string;
-  address: string;
-  principalPhone: string;
-  status: "ACTIVE" | "INACTIVE";
-  tpes: TPE[];
-  subaccounts: SubAccount[];
-};
-
-const constantBanks: Bank[] = [
-  {
-    id: 5,
-    name: "Arab Banking Corporation (ABC Algérie)",
-    address: "Rue Didouche Mourad, Alger-Centre, Algérie",
-    principalPhone: "+213 21 98 76 54",
-    status: "INACTIVE",
-    tpes: [
-      {
-        id: 7,
-        name: "Ingenico",
-        models: [{ id: 14, name: "iWL250" }],
-      },
-    ],
-    subaccounts: [
-      {
-        id: 10,
-        name: "Lydia Kaci",
-        email: "lydia.kaci@abc.dz",
-        phone: "+213 555 333 444",
-        password: "hashed_password_here",
-      },
-      {
-        id: 11,
-        name: "Mohamed Amine",
-        email: "amine.mohamed@abc.dz",
-        phone: "+213 550 111 222",
-        password: "hashed_password_here",
-      },
-    ],
-  },
-  {
-    id: 6,
-    name: "Banque Nationale d’Algérie (BNA)",
-    address: "1 Boulevard Colonel Amirouche, Alger, Algérie",
-    principalPhone: "+213 21 74 32 10",
-    status: "ACTIVE",
-    tpes: [
-      {
-        id: 8,
-        name: "Verifone",
-        models: [
-          { id: 15, name: "VX520" },
-          { id: 16, name: "VX680" },
-        ],
-      },
-    ],
-    subaccounts: [
-      {
-        id: 12,
-        name: "Sara Bensalah",
-        email: "sara.bensalah@bna.dz",
-        phone: "+213 541 222 333",
-        password: "hashed_password_here",
-      },
-    ],
-  },
-];
 
 
 
 
 
-export async function fetchbanks_consts() {
-  return new Promise<{ data: { constantBanks: typeof constantBanks } }>((resolve) => {
-    setTimeout(() => {
-      resolve({ data: { constantBanks } });
-    }, 500); // simulate API delay
-  });
-}
 
-export const fetchbanks = () => fetchbanks_consts();
+
+
+export const fetchbanks = () => api.get(ENDPOINTS.BANKS);
 export const fetchTickets = () => api.get(ENDPOINTS.TICKETS);
 
 export const fetchTickets_Manager = () => api.get(ENDPOINTS.TICKETS_MANAGER);
@@ -146,6 +74,7 @@ export const createInterventionTicket = (
 ) => api.post(ENDPOINTS.INTERVENTION, data);
 
 export const createDeblockingTicket = (data: {
+  bank_id?: number | null;
   notes: string;
   deblockingType: string;
   tpes: { id: number }[];
@@ -187,5 +116,6 @@ export async function fetchConsumableConstatData() {
 
 export const fetchConsumables = () =>fetchConsumableConstatData();
 
+export const clientfetch = (bankId: number) => api.get(`${ENDPOINTS.CLIENTS_MANAGER}?bankId=${bankId}`);
 
 export const fetchtpetypes = () => api.get(ENDPOINTS.TPEMODELS);
