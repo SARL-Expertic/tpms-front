@@ -108,14 +108,11 @@ export function BankDetailsButton({ bank, onSave }: Props) {
   const [selectedManufacturer, setSelectedManufacturer] = useState("");
 
 
-  // Load available TPE brands when component mounts (for both read and edit mode)
-  useEffect(() => {
-    loadTPEBrands();
-  }, []);
-
+ 
   // Update original bank when editing mode is activated
   useEffect(() => {
     if (isEditing) {
+      loadTPEBrands();
       setOriginalBank({ ...bank });
     }
   }, [isEditing, bank]);

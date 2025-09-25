@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, fetchTPE } from "@/app/api/tickets"
+import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, terminalperbankfetch, fetchConsumables } from "@/app/api/tickets"
 import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "date-fns"
@@ -31,6 +31,25 @@ interface Client {
   existingClient: boolean; // New field to track if the client is existing
 }
 
+// API response structure for clients
+interface APIClient {
+  id: number;
+  commercialName: string;
+  brand: string;
+  phoneNumber: string;
+  mobileNumber: string;
+  contactName: string;
+  contractNumber: string;
+  bankId: number;
+  location: {
+    wilaya: string;
+    daira: string;
+    address: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 
 // Define types for our specific ticket type data
@@ -45,10 +64,8 @@ type UnblockingData = {
   blockedReason: string;
   previousAttempts: string;
   requiredAction: string;
-  tpes: {
-    brand: string;
-    model: string;
-    quantity: string;
+  terminal_types: {
+    terminal_type_id: number;
   }[];
 }
 
@@ -56,14 +73,14 @@ type InterventionData = {
   problemCategory: string;
   problemType: string;
   tpeBrand: string;
-  tpeModel: string;
-  tpeSn: string;
+  terminal_type_id: number | null;
 }
 
 type ConsumableData = {
   items: {
     type: string;
     quantity: number;
+    customType?: string;
   }[];
 }
 
@@ -77,31 +94,41 @@ type BankInfo = {
   name: string;
 };
 
+type TPEModel = {
+  id: number;
+  model: string;
+  description: string;
+};
+
+type TPEManufacturer = {
+  manufacturer_id: number;
+  manufacturer: string;
+  models: TPEModel[];
+};
+
+type FlatTPE = {
+  id: number;
+  manufacturer: string;
+  manufacturer_id: number;
+  model: string;
+  description: string;
+};
+
+// Consumable type from API
+type ConsumableType = {
+  id: number;
+  type: string;
+  quantity: number;
+};
+
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
   const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('intervention');
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
 
-  const [clientsfetch, setclientsfetch] = useState([{
-    id:0,
-    BankName:''
-  }
-  ])
-  const [selectedClient, setSelectedClient] = useState(
-    {
-      id:0,
-      commercialName: '',
-      brand: '',
-      phoneNumber: '',
-      location: {
-        wilaya: '',
-        daira: '',
-        address: '',
-      },
-
-    }
-  )
+  const [clientsfetch, setclientsfetch] = useState<APIClient[]>([]);
+  const [selectedClient, setSelectedClient] = useState<APIClient | null>(null)
 
 
   const [banks, setBanks] = useState<BankInfo[]>([]);
@@ -153,16 +180,23 @@ useEffect(() => {
       console.error("Error fetching banks:", err);
       setBanks([]);
     });
+}, []);
 
-  clientfetch(selectedBank ? selectedBank.id : 1)  // Default to bank ID 1 if none selected
-    .then((res) => {
-      setclientsfetch(res.data.clients || []);
-    })
-    .catch((err) => {
-      console.error("Error fetching clients:", err);
-      setclientsfetch([]);
-    });
-}, [banks]);
+// Separate useEffect to fetch clients when a bank is selected
+useEffect(() => {
+  if (selectedBank?.id) {
+    clientfetch(selectedBank.id)
+      .then((res) => {
+        setclientsfetch(res.data.clients || []);
+      })
+      .catch((err) => {
+        console.error("Error fetching clients:", err);
+        setclientsfetch([]);
+      });
+  } else {
+    setclientsfetch([]);
+  }
+}, [selectedBank?.id]);
 
 useEffect(() => {
   if (selectedClient) {
@@ -172,26 +206,31 @@ useEffect(() => {
       clientName: selectedClient.commercialName,
       brand: selectedClient.brand,
       phoneNumber: selectedClient.phoneNumber,
+      mobileNumber: selectedClient.mobileNumber,
       location: {
         wilaya: selectedClient.location.wilaya,
         daira: selectedClient.location.daira,
-        address: selectedClient.location.address,
+        address: selectedClient.location.address
       },
-
+      existingClient: true
     });
   }
 }, [selectedClient]);
 
 const handleSelect = (id: number | string) => {
     const clientsel = clientsfetch.find(c => c.id === Number(id))
-    setSelectedClient(clientsel)
+    if (clientsel) {
+      setSelectedClient(clientsel)
+    }
   }
 
 
   const [unblockingData, setUnblockingData] = useState({
     notes: "",
     blockedReason: "",
-    tpes: [] as { id: number }[],   // only ids
+    terminal_types: [] as { terminal_type_id: number }[],   // changed from tpes to terminal_types
+    selectedBrand: "",
+    selectedModel: "",
   });
   
 
@@ -199,8 +238,7 @@ const handleSelect = (id: number | string) => {
           problemCategory: '',
           problemType: '',
           tpeBrand: '',
-          tpeModel: '',
-          tpeSn: ''
+          terminal_type_id: null
 });
 
 const [consumableData, setConsumableData] = useState<ConsumableData>({
@@ -253,17 +291,69 @@ const handleQuantityChange = (index: number, change: number) => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState<string>('')
 
-  const [tpes, setTpes] = useState<any[]>([]);
+  const [tpes, setTpes] = useState<FlatTPE[]>([]);
+  const [consumableTypes, setConsumableTypes] = useState<ConsumableType[]>([]);
+  const [loadingConsumables, setLoadingConsumables] = useState(false);
 
   useEffect(() => {
-    fetchTPE()
-      .then((res) => {
-        setTpes(res.data.tpes || []); // <-- extract the array
-      })
-      .catch((err) => {
-        console.error("Error fetching TPEs:", err);
-        setTpes([]);
-      });
+    if (selectedBank?.id) {
+      terminalperbankfetch(selectedBank.id)
+        .then((res) => {
+          // Transform the manufacturer/models structure into a flat array for easier use
+          const flatTpes: FlatTPE[] = [];
+          const manufacturers: TPEManufacturer[] = res.data || [];
+          
+          manufacturers.forEach(manufacturer => {
+            manufacturer.models.forEach(model => {
+              flatTpes.push({
+                id: model.id,
+                manufacturer: manufacturer.manufacturer,
+                manufacturer_id: manufacturer.manufacturer_id,
+                model: model.model,
+                description: model.description
+              });
+            });
+          });
+          
+          setTpes(flatTpes);
+        })
+        .catch((err) => {
+          console.error("Error fetching TPEs:", err);
+          setTpes([]);
+        });
+    } else {
+      setTpes([]);
+    }
+  }, [selectedBank?.id]);
+
+  // Fetch consumable types when component mounts
+  useEffect(() => {
+    const loadConsumableTypes = async () => {
+      try {
+        setLoadingConsumables(true);
+        const response = await fetchConsumables();
+        // Handle the API response structure - it could be either direct array or nested in data
+        const consumableArray = response.data?.consumables || response.data || response || [];
+        
+        // Transform the data to match our expected structure
+        const transformedConsumables = consumableArray.map((item: any) => ({
+          id: item.id || 0,
+          type: item.type || item.name || item.consumableType || 'Type inconnu',
+          quantity: item.quantity || item.stock || 0
+        }));
+        
+        setConsumableTypes(transformedConsumables);
+        console.log("✅ Consumable types loaded:", transformedConsumables);
+        console.log("✅ Raw API response:", response);
+      } catch (err) {
+        console.error("❌ Error fetching consumable types:", err);
+        setConsumableTypes([]);
+      } finally {
+        setLoadingConsumables(false);
+      }
+    };
+    
+    loadConsumableTypes();
   }, []);
   
 
@@ -301,7 +391,7 @@ const validateForm = (): boolean => {
       if (!unblockingData.blockedReason) {
         newErrors.blockedReason = "La raison du blocage est obligatoire.";
       }
-      if (unblockingData.tpes.length === 0) {
+      if (unblockingData.terminal_types.length === 0) {
         newErrors.tpes = "Veuillez ajouter au moins un TPE.";
       }
       break;
@@ -316,11 +406,8 @@ const validateForm = (): boolean => {
       if (!interventionData.tpeBrand) {
         newErrors.tpeBrand = "La marque du TPE est obligatoire.";
       }
-      if (!interventionData.tpeModel) {
+      if (!interventionData.terminal_type_id) {
         newErrors.tpeModel = "Le modèle du TPE est obligatoire.";
-      }
-      if (!interventionData.tpeSn) {
-        newErrors.tpeSn = "Le numéro de série du TPE est obligatoire.";
       }
       break;
       
@@ -332,10 +419,10 @@ const validateForm = (): boolean => {
           if (!item.type) {
             newErrors[`item-${index}-type`] = "Le type est obligatoire.";
           }
-          if (!item.quantity || parseInt(item.quantity) < 1) {
+          if (!item.quantity || item.quantity < 1) {
             newErrors[`item-${index}-quantity`] = "La quantité doit être d'au moins 1.";
           }
-          if (item.type === 'other' && !item.customType) {
+          if (item.type === 'AUTRE' && !item.customType) {
             newErrors[`item-${index}-customType`] = "Veuillez préciser le type.";
           }
         });
@@ -372,14 +459,15 @@ const resetForm = () => {
   setUnblockingData({
     blockedReason: '',
     notes: '',
-    tpes: []
+    terminal_types: [],
+    selectedBrand: '',
+    selectedModel: ''
   })
   setInterventionData({
     problemCategory: '',
     problemType: '',
     tpeBrand: '',
-    tpeModel: '',
-    tpeSn: ''
+    terminal_type_id: null
   })
   setConsumableData({
     items: []
@@ -417,8 +505,7 @@ const handleSubmit = async () => {
       case 'intervention':
         await createInterventionTicket({
           ...basePayload,
-          tpe_model: interventionData.tpeModel,
-          tpe_serialNumber: interventionData.tpeSn,
+          terminal_type_id: interventionData.terminal_type_id!,
           problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
         });
         break;
@@ -428,7 +515,7 @@ const handleSubmit = async () => {
           bank_id: selectedBank ? selectedBank.id : null,
           notes: description,
           deblockingType: unblockingData.blockedReason,
-          tpes: unblockingData.tpes,
+          terminal_types: unblockingData.terminal_types,
         });
         break;
         
@@ -436,7 +523,7 @@ const handleSubmit = async () => {
         await createConsumableTicket({
           ...basePayload,
           consumables: consumableData.items.map(item => ({
-            type: item.type === 'other' ? item.customType || 'Autre' : item.type,
+            type: item.type === 'AUTRE' ? item.customType || 'Autre' : item.type,
             quantity: item.quantity
           })),
         });
@@ -612,18 +699,28 @@ const handleSubmit = async () => {
     <label className="text-sm py-4 font-bold text-blue-700">
       Choisir un client :
     </label>
-    <Select onValueChange={handleSelect}>
-      <SelectTrigger className="w-xs">
-        <SelectValue placeholder="Choose a client" />
-      </SelectTrigger>
-      <SelectContent >
-        {clientsfetch.map((c) => (
-          <SelectItem key={c.id} value={c.id.toString()}>
-            {c.commercialName}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    {!selectedBank ? (
+      <div className="text-sm text-gray-500 italic">
+        Veuillez d'abord sélectionner une banque
+      </div>
+    ) : clientsfetch.length === 0 ? (
+      <div className="text-sm text-gray-500 italic">
+        Chargement des clients...
+      </div>
+    ) : (
+      <Select onValueChange={handleSelect}>
+        <SelectTrigger className="w-xs">
+          <SelectValue placeholder="Choisir un client" />
+        </SelectTrigger>
+        <SelectContent >
+          {clientsfetch.map((c) => (
+            <SelectItem key={c.id} value={c.id.toString()}>
+              {c.commercialName}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )}
   </div>
 )}
 
@@ -705,8 +802,7 @@ const handleSubmit = async () => {
   <Select
     value={client.location.daira}
     onValueChange={handleDairaChange}
-    disabled={!client.location.wilaya && client.existingClient}  
-      disabled={client.existingClient}   // 🔒 block editing
+    disabled={!client.location.wilaya || client.existingClient}
   >
     <SelectTrigger className="w-full">
       <SelectValue placeholder="-- Sélectionnez une daira --" />
@@ -789,7 +885,6 @@ const handleSubmit = async () => {
             ...prev,
             selectedBrand: value,
             selectedModel: "",
-            selectedSerial: "",
           }));
         }}
         value={unblockingData.selectedBrand || ""}
@@ -815,7 +910,6 @@ const handleSubmit = async () => {
           setUnblockingData((prev) => ({
             ...prev,
             selectedModel: value,
-            selectedSerial: "",
           }));
         }}
         value={unblockingData.selectedModel || ""}
@@ -841,7 +935,7 @@ const handleSubmit = async () => {
     {/* Numéro de Série */}
    {/* Numéro de Série */}
 <div className="flex flex-col">
-  <label className="text-sm font-medium mb-2">N° de Série :</label>
+  <label className="text-sm font-medium mb-2">Sélectionner TPE :</label>
   <Select
     onValueChange={(value) => {
       const selected = tpes.find((t) => String(t.id) === value);
@@ -849,15 +943,13 @@ const handleSubmit = async () => {
 
       setUnblockingData((prev) => ({
         ...prev,
-        selectedSerial: selected.serialNumber, // ✅ real SN
-        tpes: [...prev.tpes, { id: selected.id }], // ✅ real ID
+        terminal_types: [...prev.terminal_types, { terminal_type_id: selected.id }], // ✅ real ID
       }));
     }}
-    value={unblockingData.selectedSerial || ""}
     disabled={!unblockingData.selectedModel}
   >
     <SelectTrigger className="w-full">
-      <SelectValue placeholder="Sélectionnez un numéro de série" />
+      <SelectValue placeholder="Sélectionnez un TPE" />
     </SelectTrigger>
     <SelectContent>
       {tpes
@@ -868,7 +960,7 @@ const handleSubmit = async () => {
         )
         .map((t) => (
           <SelectItem key={t.id} value={String(t.id)}>
-            {t.serialNumber}
+            {t.manufacturer} - {t.model}
           </SelectItem>
         ))}
     </SelectContent>
@@ -878,25 +970,24 @@ const handleSubmit = async () => {
   </div>
 
   {/* Selected TPEs list */}
-  {unblockingData.tpes.length > 0 && (
+  {unblockingData.terminal_types.length > 0 && (
     <div className="mt-6 space-y-2">
-      {unblockingData.tpes.map((tpe, index) => {
-        const fullTpe = tpes.find((t) => t.id === tpe.id);
+      {unblockingData.terminal_types.map((terminalType, index) => {
+        const fullTpe = tpes.find((t) => t.id === terminalType.terminal_type_id);
         return (
           <div
             key={index}
             className="flex justify-between items-center p-3 border rounded-lg"
           >
             <span>
-              {fullTpe?.manufacturer} – {fullTpe?.model} – SN:{" "}
-              <b>{fullTpe?.serialNumber}</b>
+              {fullTpe?.manufacturer} – {fullTpe?.model}
             </span>
             <button
               type="button"
               onClick={() =>
                 setUnblockingData((prev) => ({
                   ...prev,
-                  tpes: prev.tpes.filter((_, i) => i !== index),
+                  terminal_types: prev.terminal_types.filter((_, i) => i !== index),
                 }))
               }
               className="text-red-500 hover:text-red-700"
@@ -1006,7 +1097,13 @@ const handleSubmit = async () => {
   {/* Marque */}
 <Select
   value={interventionData.tpeBrand}
-  onValueChange={(value) => handleInterventionDataChange("tpeBrand", value)}
+  onValueChange={(value) => {
+    setInterventionData(prev => ({
+      ...prev,
+      tpeBrand: value,
+      terminal_type_id: null // Reset terminal_type_id when brand changes
+    }));
+  }}
 >
   <SelectTrigger className="w-full">
     <SelectValue placeholder="Sélectionnez une marque" />
@@ -1022,8 +1119,14 @@ const handleSubmit = async () => {
 
 {/* Modèle */}
 <Select
-  value={interventionData.tpeModel}
-  onValueChange={(value) => handleInterventionDataChange("tpeModel", value)}
+  value={interventionData.terminal_type_id?.toString() || ""}
+  onValueChange={(value) => {
+    const selectedId = parseInt(value);
+    setInterventionData(prev => ({
+      ...prev,
+      terminal_type_id: selectedId
+    }));
+  }}
   disabled={!interventionData.tpeBrand}
 >
   <SelectTrigger className="w-full">
@@ -1033,34 +1136,10 @@ const handleSubmit = async () => {
     {tpes
       .filter((t) => t.manufacturer === interventionData.tpeBrand)
       .map((t) => (
-        <SelectItem key={t.model} value={t.model}>
+        <SelectItem key={t.id} value={t.id.toString()}>
           {t.model}
         </SelectItem>
-      ))}
-  </SelectContent>
-</Select>
-
-{/* Numéro de série */}
-<Select
-  value={interventionData.tpeSn}
-  onValueChange={(value) => handleInterventionDataChange("tpeSn", value)}
-  disabled={!interventionData.tpeModel}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez un SN" />
-  </SelectTrigger>
-  <SelectContent>
-    {tpes
-      .filter(
-        (t) =>
-          t.manufacturer === interventionData.tpeBrand &&
-          t.model === interventionData.tpeModel
-      )
-      .map((t) => (
-        <SelectItem key={t.serialNumber} value={t.serialNumber}>
-          {t.serialNumber}
-        </SelectItem>
-      ))}
+      ))}  
   </SelectContent>
 </Select>
 </div>
@@ -1114,22 +1193,28 @@ const handleSubmit = async () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col">
                   <label className="text-sm font-medium mb-2">Type de consommable :</label>
-                  <Select
-                    onValueChange={(value) => handleConsumableItemChange(index, 'type', value)}
-                    value={item.type}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sélectionnez le type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TONER">Toner</SelectItem>
-                      <SelectItem value="PAPIER">Papier</SelectItem>
-                      <SelectItem value="RUBAN">Ruban</SelectItem>
-                      <SelectItem value="CARTOUCHE">Cartouche</SelectItem>
-                      <SelectItem value="KIT_DE_NETTOYAGE">Kit de nettoyage</SelectItem>
-                      <SelectItem value="AUTRE">Autre</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {loadingConsumables ? (
+                    <div className="h-10 bg-gray-200 rounded animate-pulse flex items-center justify-center">
+                      <span className="text-sm text-gray-500">Chargement des types...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      onValueChange={(value) => handleConsumableItemChange(index, 'type', value)}
+                      value={item.type}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Sélectionnez le type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {consumableTypes.map((consumableType) => (
+                          <SelectItem key={consumableType.id} value={consumableType.type}>
+                            {consumableType.type} - Stock: {consumableType.quantity}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="AUTRE">Autre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                   {errors[`item-${index}-type`] && (
                     <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-type`]}</p>
                   )}
@@ -1170,7 +1255,7 @@ const handleSubmit = async () => {
                   )}
                 </div>
 
-                {item.type === 'other' && (
+                {item.type === 'AUTRE' && (
                   <div className="md:col-span-2 flex flex-col">
                     <label className="text-sm font-medium mb-2">Précisez le type :</label>
                     <Input
@@ -1180,6 +1265,9 @@ const handleSubmit = async () => {
                       onChange={(e) => handleConsumableItemChange(index, 'customType', e.target.value)}
                       className="w-full"
                     />
+                    {errors[`item-${index}-customType`] && (
+                      <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-customType`]}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1207,14 +1295,14 @@ const handleSubmit = async () => {
           <div>
             <p className="text-sm font-medium text-blue-700">Total des articles :</p>
             <p className="text-lg font-bold text-blue-900">
-              {consumableData.items.reduce((total, item) => total + parseInt(item.quantity || '0'), 0)}
+              {consumableData.items.reduce((total, item) => total + (item.quantity || 0), 0)}
             </p>
           </div>
           <div>
             <p className="text-sm font-medium text-blue-700">Types demandés :</p>
             <p className="text-sm text-blue-900">
               {Array.from(new Set(consumableData.items.map(item => 
-                item.type === 'other' ? item.customType : item.type
+                item.type === 'AUTRE' ? item.customType : item.type
               ))).join(', ')}
             </p>
           </div>

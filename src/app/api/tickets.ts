@@ -67,9 +67,8 @@ export const createNetworkCheckTicket = (
 
 export const createInterventionTicket = (
   data: NewOrExistingClient & {
-    tpe_model: string;
+    terminal_type_id: number;
     problem_description: string;
-    tpe_serialNumber: string;
   }
 ) => api.post(ENDPOINTS.INTERVENTION, data);
 
@@ -77,7 +76,7 @@ export const createDeblockingTicket = (data: {
   bank_id?: number | null;
   notes: string;
   deblockingType: string;
-  tpes: { id: number }[];
+  terminal_types: { terminal_type_id: number }[];
 }) =>
   api.post(ENDPOINTS.DEBLOCKING, data);
 
@@ -114,7 +113,7 @@ export async function fetchConsumableConstatData() {
 }
 
 
-export const fetchConsumables = () =>fetchConsumableConstatData();
+export const fetchConsumables = () => api.get(ENDPOINTS.CONSUMABLEITEMS);
 
 export const clientfetch = (bankId: number) => api.get(`${ENDPOINTS.CLIENTS_MANAGER}?bankId=${bankId}`);
 
