@@ -532,6 +532,10 @@ const handleSubmit = async () => {
     
     resetForm();
     setSuccessMessage("✅ Ticket créé avec succès !");
+    // Call onCreate to refresh the table
+    if (onCreate) {
+      setTimeout(() => onCreate(), 1000); // Delay to show success message
+    }
     return false;
   } catch (error) {
     console.error(error);

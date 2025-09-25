@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TicketDetailsButton } from "../../modal/interventionBank/tickitsdetailsButton";
 
 // Columns for tickets (TickitColumns)
-export const TickitColumns: ColumnDef<Ticket>[] = [
+export const createTickitColumns = (onRefresh: () => void): ColumnDef<Ticket>[] => [
   {
     accessorKey: "id",
     header: "N° ticket",
@@ -101,9 +101,14 @@ export const TickitColumns: ColumnDef<Ticket>[] = [
       onSave={(updatedTicket) => {
         // Implement your save logic here, e.g., update state or make an API call
         console.log("Ticket saved:", updatedTicket);
+        onRefresh(); // Refresh the table after saving
       }}
+      onClose={onRefresh} // Refresh the table after closing ticket
     />
   )
 }
 
 ];
+
+// Export the original columns for backward compatibility
+export const TickitColumns = createTickitColumns(() => {});

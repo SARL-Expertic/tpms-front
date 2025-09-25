@@ -37,6 +37,7 @@ import { closeticket } from "@/app/api/tickets";
 type Props = {
   ticket: Ticket;
   onSave: (updatedTicket: Ticket) => void;
+  onClose?: () => void; // Add optional onClose prop
 };
 
 const statusColorMap: Record<string, string> = {
@@ -54,7 +55,7 @@ const statusColorMap: Record<string, string> = {
 
 const statusOptions = ["CLOTURÉ", "EN COURS", "EN ATTENTE"];
 
-export function TicketDetailsButton({ ticket, onSave }: Props) {
+export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTicket, setEditedTicket] = useState<Ticket>({ ...ticket });
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +73,10 @@ export function TicketDetailsButton({ ticket, onSave }: Props) {
         throw new Error("Failed to Close ticket");
       }
       setSuccessMessage("Ticket fermé avec succès!");
+      // Call onClose to refresh the table
+      if (onClose) {
+        setTimeout(() => onClose(), 1000); // Delay to show success message
+      }
     } catch (error) {
       console.error("Error making GET request:", error);
       setSuccessMessage("Erreur lors de la fermeture du ticket");

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { fetchTickets, fetchTickets_Manager } from "@/app/api/tickets"
 import { format } from "date-fns"
 import { filter_Tickets_manager } from "@/constants/tickets/filter_Tickets_manager"
-import { TickitColumns } from "./columns"
+import { createTickitColumns } from "./columns"
 import CreateTicketButton from "../../modal/interventionBank/Nouvelle_ticket"
 
 
@@ -42,7 +42,9 @@ const entofr_status = (STATUS: string): string => {
     return map[STATUS] || STATUS;
 };
 
-  useEffect(() => {
+  // Function to fetch and refresh tickets
+  const fetchAndSetTickets = () => {
+    setLoading(true)
     fetchTickets_Manager()
       .then((res) => {
     const transformed = res.data.map((ticket: any) => ({
@@ -107,13 +109,17 @@ const entofr_status = (STATUS: string): string => {
         setError(err)
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    fetchAndSetTickets()
   }, [])
 
   return (
     <div className="mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Tableau des demandes</h1>
-    <CreateTicketButton />
+    <CreateTicketButton onCreate={fetchAndSetTickets} />
       </div>
       {loading ? (
         <div>Chargement...</div>
@@ -122,7 +128,7 @@ const entofr_status = (STATUS: string): string => {
       ) : (
 
         <DataTable
-          columns={TickitColumns}
+          columns={createTickitColumns(fetchAndSetTickets)}
           data={tickets}
           filters={filter_Tickets_manager}
         />
