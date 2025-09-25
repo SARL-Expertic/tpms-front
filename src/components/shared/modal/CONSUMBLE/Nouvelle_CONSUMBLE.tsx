@@ -5,9 +5,15 @@ import { FaBox, FaPlus, FaMinus, FaTrash } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DynamicModal } from "../Modal";
+import { createconsumableitem } from "@/app/api/tickets";
 
-export default function ConsumableModal() {
+type Props = {
+  onSuccess?: () => void;
+};
+
+export default function ConsumableModal({ onSuccess }: Props) {
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [consumableData, setConsumableData] = useState({
     items: [{ type: "", quantity: 1 }],
   });
@@ -20,7 +26,11 @@ export default function ConsumableModal() {
     value: string | number
   ) => {
     const updatedItems = [...consumableData.items];
-    updatedItems[index][field] = value;
+    if (field === "type") {
+      updatedItems[index][field] = value as string;
+    } else {
+      updatedItems[index][field] = value as number;
+    }
     setConsumableData({ items: updatedItems });
   };
 
@@ -45,7 +55,7 @@ export default function ConsumableModal() {
   };
 
   // 🔹 Submit form
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     let newErrors: Record<string, string> = {};
     consumableData.items.forEach((item, i) => {
       if (!item.type) newErrors[`item-${i}-type`] = "Nom requis";
@@ -55,11 +65,37 @@ export default function ConsumableModal() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      return;
+      return false;
     }
 
-    console.log("✅ New consumables:", consumableData);
-    setOpen(false);
+    try {
+      setIsLoading(true);
+      setErrors({});
+      
+      // Create each consumable item via API
+      for (const item of consumableData.items) {
+        await createconsumableitem(item.quantity, item.type);
+      }
+      
+      console.log("✅ New consumables created successfully");
+      
+      // Reset form
+      setConsumableData({ items: [{ type: "", quantity: 1 }] });
+      
+      // Call success callback to refresh parent table
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      setOpen(false);
+      return true;
+    } catch (error) {
+      console.error('Error creating consumables:', error);
+      setErrors({ general: 'Erreur lors de la création des consommables. Veuillez réessayer.' });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -67,14 +103,24 @@ export default function ConsumableModal() {
   
 
       <DynamicModal
-        triggerLabel='Nouveau consommable'
+        triggerLabel={<Button className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
+          <FaBox />
+          Nouveau consommable
+        </Button>}
         open={open}
         onOpenChange={setOpen}
         title="Ajouter des consommables"
         description="Ajoutez les articles consommables avec leur quantité."
+        confirmLabel={isLoading ? "Création..." : "Créer les consommables"}
         onConfirm={handleSubmit}
       >
         <div className="space-y-6">
+          {/* Show general error if any */}
+          {errors.general && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-red-700 text-sm">{errors.general}</p>
+            </div>
+          )}
           {consumableData.items.map((item, index) => (
             <div
               key={index}
@@ -89,6 +135,7 @@ export default function ConsumableModal() {
                   type="text"
                   placeholder="Ex: Papier thermique"
                   value={item.type}
+                  disabled={isLoading}
                   onChange={(e) =>
                     handleConsumableItemChange(index, "type", e.target.value)
                   }
@@ -108,6 +155,7 @@ export default function ConsumableModal() {
                     type="button"
                     size="icon"
                     variant="outline"
+                    disabled={isLoading}
                     onClick={() => handleQuantityChange(index, -1)}
                   >
                     <FaMinus />
@@ -117,6 +165,7 @@ export default function ConsumableModal() {
                     className="text-center w-20"
                     value={item.quantity}
                     min={1}
+                    disabled={isLoading}
                     onChange={(e) =>
                       handleConsumableItemChange(index, "quantity", Number(e.target.value))
                     }
@@ -125,6 +174,7 @@ export default function ConsumableModal() {
                     type="button"
                     size="icon"
                     variant="outline"
+                    disabled={isLoading}
                     onClick={() => handleQuantityChange(index, 1)}
                   >
                     <FaPlus />
@@ -143,6 +193,7 @@ export default function ConsumableModal() {
                   type="button"
                   size="icon"
                   variant="destructive"
+                  disabled={isLoading || consumableData.items.length <= 1}
                   onClick={() => handleRemoveConsumable(index)}
                 >
                   <FaTrash />
@@ -156,6 +207,7 @@ export default function ConsumableModal() {
             <Button
               type="button"
               onClick={handleAddConsumable}
+              disabled={isLoading}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
             >
               <FaPlus /> Ajouter un article

@@ -5,25 +5,33 @@ import { Button } from "@/components/ui/button";
 import { DynamicModal } from "../Modal";
 import { FaInfoCircle, FaBox, FaEdit, FaSave, FaTimes } from "react-icons/fa";
 import { Input } from "@/components/ui/input";
+import { updateconsumableitem } from "@/app/api/tickets";
 
 type Consumable = {
   id: number;
-  name: string;
+  type: string;
   quantity: number;
+
 };
 
 type Props = {
   consumable: Consumable;
-  onSave: (updatedConsumable: Consumable) => void;
+  onSave: () => void;
 };
 
 export function ConsumableDetailsButton({ consumable, onSave }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedConsumable, setEditedConsumable] = useState<Consumable>({ ...consumable });
 
-  const handleSave = () => {
-    onSave(editedConsumable);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      await updateconsumableitem(editedConsumable.id, editedConsumable.quantity, editedConsumable.type);
+      onSave(); // Call onSave to trigger table refresh
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating consumable:', error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleCancel = () => {
@@ -49,9 +57,13 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
           Détails
         </Button>
       }
-      title={
-        <div className="flex items-center justify-between">
-          <span>Consommable: {consumable.name}</span>
+      title={`Consommable: ${consumable.type}`}
+      description={`Informations sur le consommable #${consumable.id}`}
+      cancelLabel="Fermer"
+    >
+      <div className="space-y-4 p-2">
+        {/* Edit/Save buttons */}
+        <div className="flex justify-end gap-2 border-b pb-2">
           {!isEditing ? (
             <Button 
               onClick={() => setIsEditing(true)} 
@@ -63,7 +75,7 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
               Modifier
             </Button>
           ) : (
-            <div className="flex gap-2">
+            <>
               <Button 
                 onClick={handleSave} 
                 size="sm"
@@ -81,25 +93,22 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
                 <FaTimes />
                 Annuler
               </Button>
-            </div>
+            </>
           )}
         </div>
-      }
-      description={`Informations sur le consommable #${consumable.id}`}
-      cancelLabel="Fermer"
-    >
-      <div className="space-y-4 p-2">
+        
         <div className="p-4 rounded-lg border bg-muted/20">
           <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
             <FaBox className="text-blue-600" /> 
             {isEditing ? (
               <Input
-                value={editedConsumable.name}
-                onChange={(e) => handleChange('name', e.target.value)}
+                value={editedConsumable.type}
+                onChange={(e) => handleChange('type', e.target.value)}
                 className="text-lg font-bold"
+                placeholder="Type de consommable"
               />
             ) : (
-              consumable.name
+              consumable.type
             )}
           </h2>
           
@@ -110,7 +119,7 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
                 {consumable.id}
               </div>
             </div>
-            
+
             <div>
               <span className="text-sm text-muted-foreground block mb-1">Quantité:</span>
               {isEditing ? (

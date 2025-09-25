@@ -10,7 +10,7 @@ import { Plus, Trash2, ChevronDown, Building, CreditCard, UserPlus, MapPin, Phon
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchtpetypes } from "@/app/api/tickets";
+import { createbank, fetchtpetypes, terminaltypesfetch } from "@/app/api/tickets";
 
 type SubAccount = {
   id: number;
@@ -20,41 +20,62 @@ type SubAccount = {
   password: string;
 };
 
-type TPEModel = { id: number; name: string };
-type TPE = { id: number; manufacturer: string; model: TPEModel[] };
+type TPEModel = { 
+  id: number; 
+  model: string; 
+  description?: string; 
+};
+
+type TPEBrand = {
+  manufacturer: string;
+  models: TPEModel[];
+};
+
+type BankTPE = {
+  manufacturer: string;
+  models: TPEModel[];
+};
 
 type Bank = {
   id: number;
   name: string;
+  bank_code: string;
   address: string;
   principalPhone: string;
-  status: "ACTIVE" | "INACTIVE";
-  tpes: TPE[];
+  status: "ACTIVE" | "UNACTIVE";
+  tpes: BankTPE[];
   subaccounts: SubAccount[];
+  addTerminalTypes: boolean
 };
 
 
 
 export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }) {
   const [bank, setBank] = useState<Bank>({
-    id: Date.now(),
+    id: 0,
     name: "",
+    bank_code: "",
     address: "",
     principalPhone: "",
     status: "ACTIVE",
     tpes: [],
     subaccounts: [],
+    addTerminalTypes: false
   });
 
-  const [existingTPEBrands, setExistingTPEBrands] = useState<TPE[]>([]);
+  // Track original bank state for comparison
+  const [originalBank, setOriginalBank] = useState<Bank | null>(null);
+  const [isEdit, setIsEdit] = useState(false);
+
+  const [existingTPEBrands, setExistingTPEBrands] = useState<TPEBrand[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(true);
 
   useEffect(() => {
     async function loadBrands() {
       try {
         setLoadingBrands(true);
-        const response = await fetchtpetypes();
-        setExistingTPEBrands(response.data);
+        const response = await terminaltypesfetch();
+        setExistingTPEBrands(response.data || []);
       } catch (err) {
         console.error("Error fetching TPE types:", err);
       } finally {
@@ -83,6 +104,7 @@ const validateForm = () => {
   const newErrors: Record<string, string> = {};
   
   if (!bank.name) newErrors.name = "Le nom de la banque est requis";
+  if (!bank.bank_code) newErrors.bank_code = "Le code de la banque est requis";
   if (!bank.address) newErrors.address = "L'adresse est requise";
   if (!bank.principalPhone) newErrors.principalPhone = "Le numéro de téléphone est requis";
   if (!/^\+?[\d\s-]{10,}$/.test(bank.principalPhone)) newErrors.principalPhone = "Numéro de téléphone invalide";
@@ -96,8 +118,8 @@ const validateSubAccount = () => {
   if (!newSub.email) return "L'email est requis";
   if (!/\S+@\S+\.\S+/.test(newSub.email)) return "Format de l'email invalide";
   if (!newSub.phone) return "Le numéro de téléphone est requis";
-  if (!newSub.password) return "Le mot de passe est requis";
-  if (newSub.password.length < 6) return "Le mot de passe doit contenir au moins 6 caractères";
+  // Password is optional - only validate if provided
+  if (newSub.password && newSub.password.length < 6) return "Le mot de passe doit contenir au moins 6 caractères";
   return "";
 };
 
@@ -127,17 +149,18 @@ const validateTPE = () => {
       return;
     }
 
-    let brandId: number;
-    let brandName: string;
-    let modelName: string;
-
-    const selectedBrand = existingTPEBrands.find(b => b.id.toString() === tpeSelection.brand);
+    const selectedBrand = existingTPEBrands.find(b => b.manufacturer === tpeSelection.brand);
     if (!selectedBrand) return;
-    brandId = selectedBrand.id;
-    brandName = selectedBrand.manufacturer;
-    const selectedModel = selectedBrand.model.find(m => m.id.toString() === tpeSelection.model);
+    
+    const selectedModel = selectedBrand.models.find(m => m.id?.toString() === tpeSelection.model);
     if (!selectedModel) return;
-    modelName = selectedModel.name;
+
+    const brandName = selectedBrand.manufacturer;
+    const modelData = {
+      id: selectedModel.id,
+      model: selectedModel.model,
+      description: selectedModel.description
+    };
 
     // Check if brand already exists in bank
     const existingBrandIndex = bank.tpes.findIndex(t => t.manufacturer === brandName);
@@ -147,18 +170,23 @@ const validateTPE = () => {
       const updatedTpes = [...bank.tpes];
       updatedTpes[existingBrandIndex] = {
         ...updatedTpes[existingBrandIndex],
-        model: [...updatedTpes[existingBrandIndex].model, { id: Date.now(), name: modelName }]
+        models: [
+          ...updatedTpes[existingBrandIndex].models,
+          modelData
+        ]
       };
       setBank(prev => ({ ...prev, tpes: updatedTpes }));
     } else {
       // Add new brand with model
       setBank(prev => ({
         ...prev,
-        tpes: [...prev.tpes, {
-          id: brandId,
-          manufacturer: brandName,
-          model: [{ id: Date.now(), name: modelName }]
-        }]
+        tpes: [
+          ...prev.tpes,
+          {
+            manufacturer: brandName,
+            models: [modelData]
+          }
+        ]
       }));
     }
 
@@ -171,9 +199,132 @@ const validateTPE = () => {
   };
 
   const handleSubmit = () => {
-  if (!validateForm()) return false;
-  onCreate(bank);
-  return true;
+    if (!validateForm()) return false;
+
+    // Prepare the payload with only changed fields
+    const payload: any = {};
+    
+    // Always include basic required fields for creation
+    if (!isEdit) {
+      payload.bank_name = bank.name;
+      payload.bank_code = bank.bank_code;
+      payload.address = bank.address;
+      payload.phone_number = bank.principalPhone;
+      payload.status = bank.status;
+    } else {
+      // For updates, only include changed fields
+      if (originalBank) {
+        if (bank.name !== originalBank.name) payload.bank_name = bank.name;
+        if (bank.bank_code !== originalBank.bank_code) payload.bank_code = bank.bank_code;
+        if (bank.address !== originalBank.address) payload.address = bank.address;
+        if (bank.principalPhone !== originalBank.principalPhone) payload.phone_number = bank.principalPhone;
+        if (bank.status !== originalBank.status) payload.status = bank.status;
+      }
+    }
+
+    // Handle TPE changes with separate tracking
+    const currentTPEIds = bank.tpes.flatMap(tpe => tpe.models.map(model => model.id));
+    const originalTPEIds = originalBank ? originalBank.tpes.flatMap(tpe => tpe.models.map(model => model.id)) : [];
+    
+    // For new banks, send all TPE IDs as additions
+    if (!isEdit) {
+      if (currentTPEIds.length > 0) {
+        payload.existingTerminalTypeIds = currentTPEIds;
+      }
+    } else {
+      // For edits, track specific additions and removals
+      const terminalTypeIdsToRemove = originalTPEIds.filter(id => !currentTPEIds.includes(id));
+      const terminalTypesToAdd = currentTPEIds
+        .filter(id => !originalTPEIds.includes(id))
+        .map(id => ({ id }));
+      
+      // Only send TPE operations if there are changes
+      if (terminalTypeIdsToRemove.length > 0) {
+        payload.terminalTypeIdsToRemove = terminalTypeIdsToRemove;
+      }
+      if (terminalTypesToAdd.length > 0) {
+        payload.terminalTypesToAdd = terminalTypesToAdd;
+      }
+    }
+
+    // Handle employee changes with separate tracking
+    if (!isEdit) {
+      // For new banks, send all employees as new
+      if (bank.subaccounts.length > 0) {
+        const processedEmployees = bank.subaccounts.map(sub => ({
+          firstName: sub.name.split(' ')[0] || sub.name,
+          lastName: sub.name.split(' ').slice(1).join(' ') || sub.name,
+          email: sub.email,
+          phone: sub.phone,
+          ...(sub.password && sub.password.trim() !== '' && { plainPassword: sub.password })
+        }));
+        payload.employees = processedEmployees;
+      }
+    } else {
+      // For edits, track specific operations
+      const currentEmployeeIds = bank.subaccounts
+        .filter(sub => sub.id && sub.id > 0)
+        .map(sub => sub.id);
+      const originalEmployeeIds = originalBank ? originalBank.subaccounts.map(sub => sub.id) : [];
+      
+      // Find employees to remove
+      const employeeIdsToRemove = originalEmployeeIds.filter(id => !currentEmployeeIds.includes(id));
+      
+      // Process current employees (existing + new)
+      const processedEmployees = bank.subaccounts.map(sub => {
+        const employee: any = {
+          firstName: sub.name.split(' ')[0] || sub.name,
+          lastName: sub.name.split(' ').slice(1).join(' ') || sub.name,
+          email: sub.email,
+          phone: sub.phone
+        };
+        
+        // Only include ID for employees that existed in the original bank
+        if (sub.id && sub.id > 0 && originalBank) {
+          const existedInOriginal = originalBank.subaccounts.some(orig => orig.id === sub.id);
+          if (existedInOriginal) {
+            employee.id = sub.id;
+          }
+        }
+        
+        // Only include password if it's not empty (user actually typed something)
+        if (sub.password && sub.password.trim() !== '') {
+          employee.plainPassword = sub.password;
+        }
+        
+        return employee;
+      });
+      
+      // Check if there are employee changes (updates or additions)
+      const originalProcessedEmployees = originalBank ? originalBank.subaccounts.map(sub => ({
+        id: sub.id,
+        firstName: sub.name.split(' ')[0] || sub.name,
+        lastName: sub.name.split(' ').slice(1).join(' ') || sub.name,
+        email: sub.email,
+        phone: sub.phone
+      })) : [];
+      
+      const currentEmployeesForComparison = processedEmployees.map(emp => {
+        const { plainPassword, ...empWithoutPassword } = emp;
+        return empWithoutPassword;
+      });
+      
+      // Send employee operations if there are changes
+      if (employeeIdsToRemove.length > 0) {
+        payload.employeeIdsToRemove = employeeIdsToRemove;
+      }
+      if (JSON.stringify(currentEmployeesForComparison) !== JSON.stringify(originalProcessedEmployees)) {
+        payload.employees = processedEmployees;
+      }
+    }
+
+    // Only make API call if there are actual changes or it's a new bank
+    if (!isEdit || Object.keys(payload).length > 0) {
+      createbank(payload);
+      onCreate(bank);
+    }
+    
+    return true;
   };
 
   const removeSubAccount = (id: number) => {
@@ -183,22 +334,22 @@ const validateTPE = () => {
     }));
   };
 
-  const removeTPE = (brandId: number, modelId?: number) => {
+  const removeTPE = (brandName: string, modelId?: number) => {
     if (modelId) {
       // Remove specific model
       setBank(prev => ({
         ...prev,
         tpes: prev.tpes.map(tpe => 
-          tpe.id === brandId 
-            ? {...tpe, model: tpe.model.filter(model => model.id !== modelId)}
+          tpe.manufacturer === brandName 
+            ? {...tpe, models: tpe.models.filter(model => model.id !== modelId)}
             : tpe
-        ).filter(tpe => tpe.model.length > 0) // Remove brands with no model
+        ).filter(tpe => tpe.models.length > 0) // Remove brands with no models
       }));
     } else {
       // Remove entire brand
       setBank(prev => ({
         ...prev,
-        tpes: prev.tpes.filter(tpe => tpe.id !== brandId)
+        tpes: prev.tpes.filter(tpe => tpe.manufacturer !== brandName)
       }));
     }
   };
@@ -247,6 +398,7 @@ const validateTPE = () => {
                     onChange={(e) => setBank({ ...bank, name: e.target.value })}
                     placeholder="Ex: Banque Nationale d'Algérie"
                     className={errors.name ? "border-red-500" : ""}
+                    autoComplete="off"
                   />
                   {errors.name && (
                     <p className="text-red-500 text-sm flex items-center gap-1">
@@ -256,6 +408,25 @@ const validateTPE = () => {
                   )}
                 </div>
 
+<div className="space-y-2">
+                  <Label htmlFor="bank-code" className="flex items-center gap-1">
+                    Code de la Banque <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="bank-code"
+                    value={bank.bank_code}
+                    onChange={(e) => setBank({ ...bank, bank_code: e.target.value })}
+                    placeholder="Ex: BNA123"
+                    className={errors.bank_code ? "border-red-500" : ""}
+                    autoComplete="off"
+                  />
+                  {errors.bank_code && (
+                    <p className="text-red-500 text-sm flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {errors.bank_code}
+                    </p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="bank-address" className="flex items-center gap-1">
                     Adresse <span className="text-red-500">*</span>
@@ -268,6 +439,7 @@ const validateTPE = () => {
                       onChange={(e) => setBank({ ...bank, address: e.target.value })}
                       placeholder="Ex: 1 Boulevard Colonel Amirouche, Alger"
                       className={errors.address ? "border-red-500 pl-10" : "pl-10"}
+                      autoComplete="off"
                     />
                   </div>
                   {errors.address && (
@@ -290,6 +462,7 @@ const validateTPE = () => {
                       onChange={(e) => setBank({ ...bank, principalPhone: e.target.value })}
                       placeholder="+213 ..."
                       className={errors.principalPhone ? "border-red-500 pl-10" : "pl-10"}
+                      autoComplete="off"
                     />
                   </div>
                   {errors.principalPhone && (
@@ -304,7 +477,7 @@ const validateTPE = () => {
                   <Label htmlFor="bank-status">Status</Label>
                   <Select
                     value={bank.status}
-                    onValueChange={(val: "ACTIVE" | "INACTIVE") => setBank({ ...bank, status: val })}
+                    onValueChange={(val: "ACTIVE" | "UNACTIVE") => setBank({ ...bank, status: val })}
                   >
                     <SelectTrigger id="bank-status">
                       <SelectValue placeholder="Choisir le status" />
@@ -316,10 +489,10 @@ const validateTPE = () => {
                           ACTIVE
                         </div>
                       </SelectItem>
-                      <SelectItem value="INACTIVE">
+                      <SelectItem value="UNACTIVE">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                          INACTIVE
+                          UNACTIVE
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -354,6 +527,7 @@ const validateTPE = () => {
                       placeholder="Nom complet"
                       value={newSub.name}
                       onChange={(e) => setNewSub({ ...newSub, name: e.target.value })}
+                      autoComplete="off"
                     />
                   </div>
                   <div className="space-y-2">
@@ -362,9 +536,11 @@ const validateTPE = () => {
                     </Label>
                     <Input
                       id="sub-email"
+                      type="email"
                       placeholder="adresse@email.com"
                       value={newSub.email}
                       onChange={(e) => setNewSub({ ...newSub, email: e.target.value })}
+                      autoComplete="off"
                     />
                   </div>
                   <div className="space-y-2">
@@ -374,23 +550,26 @@ const validateTPE = () => {
                     <Input
                       id="sub-phone"
                       placeholder="+213 ..."
+                      type="tel"
                       value={newSub.phone}
                       onChange={(e) => setNewSub({ ...newSub, phone: e.target.value })}
+                      autoComplete="off"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sub-password" className="flex items-center gap-1">
-                      Mot de passe <span className="text-red-500">*</span>
+                      Mot de passe <span className="text-gray-400">(optionnel)</span>
                     </Label>
                     <div className="relative">
                       <Key className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                       <Input
                         id="sub-password"
                         type="password"
-                        placeholder="Min. 6 caractères"
+                        placeholder="Nouveau mot de passe (optionnel)"
                         value={newSub.password}
                         onChange={(e) => setNewSub({ ...newSub, password: e.target.value })}
                         className="pl-10"
+                        autoComplete="new-password"
                       />
                     </div>
                   </div>
@@ -445,7 +624,7 @@ const validateTPE = () => {
                   <CreditCard className="h-5 w-5 text-orange-600" />
                   Terminaux de Paiement Électronique (TPE)
                   <Badge variant="outline" className="ml-2">
-                    {bank.tpes.reduce((acc, tpe) => acc + tpe.model.length, 0)}
+                    {bank.tpes.reduce((acc, tpe) => acc + tpe.models.length, 0)}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
@@ -464,8 +643,8 @@ const validateTPE = () => {
                         <SelectValue placeholder="Sélectionner une marque" />
                       </SelectTrigger>
                       <SelectContent>
-                        {existingTPEBrands.map((brand) => (
-                          <SelectItem key={brand.id} value={brand.id.toString()}>
+                        {existingTPEBrands.map((brand, index) => (
+                          <SelectItem key={index} value={brand.manufacturer}>
                             {brand.manufacturer}
                           </SelectItem>
                         ))}
@@ -484,10 +663,10 @@ const validateTPE = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {existingTPEBrands
-                          .find(b => b.id.toString() === tpeSelection.brand)
-                          ?.model.map((model1) => (
-                            <SelectItem key={model1.id} value={model1.id.toString()}>
-                              {model1.name}
+                          .find(b => b.manufacturer === tpeSelection.brand)
+                          ?.models.map((model) => (
+                            <SelectItem key={model.id} value={model.id.toString()}>
+                              {model.model}
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -515,14 +694,14 @@ const validateTPE = () => {
 
                 {bank.tpes.length > 0 && (
                   <div className="border rounded-lg divide-y">
-                    {bank.tpes.map((tpe) => (
-                      <div key={tpe.id} className="p-4">
+                    {bank.tpes.map((tpe, index) => (
+                      <div key={index} className="p-4">
                         <div className="flex justify-between items-center mb-3">
                           <h4 className="font-medium text-lg">{tpe.manufacturer}</h4>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeTPE(tpe.id)}
+                            onClick={() => removeTPE(tpe.manufacturer)}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -531,13 +710,13 @@ const validateTPE = () => {
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {tpe.model.map((model1) => (
-                            <div key={model1.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
-                              <span className="text-sm">{model1.name}</span>
+                          {tpe.models.map((model) => (
+                            <div key={model.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
+                              <span className="text-sm">{model.model}</span>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => removeTPE(tpe.id, model1.id)}
+                                onClick={() => removeTPE(tpe.manufacturer, model.id)}
                                 className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                               >
                                 <Trash2 className="h-3 w-3" />

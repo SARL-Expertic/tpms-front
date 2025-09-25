@@ -119,3 +119,22 @@ export const fetchConsumables = () =>fetchConsumableConstatData();
 export const clientfetch = (bankId: number) => api.get(`${ENDPOINTS.CLIENTS_MANAGER}?bankId=${bankId}`);
 
 export const fetchtpetypes = () => api.get(ENDPOINTS.TPEMODELS);
+
+export const fetchConsumablesItems = () => api.get(ENDPOINTS.CONSUMABLEITEMS);
+export const updateconsumableitem = (id: number, quantity: number , type?: string) => api.put(`${ENDPOINTS.CONSUMABLEITEMS}/${id}`, { quantity, type });
+export const createconsumableitem = (quantity: number , type: string) => api.post(ENDPOINTS.CONSUMABLEITEMS, { quantity, type });
+export const deleteconsumableitem = (id: number) => api.delete(`${ENDPOINTS.CONSUMABLEITEMS}/${id}`);
+
+
+export const terminalperbankfetch = (bankId: number) => api.get(`${ENDPOINTS.TERMINALTYPES}?bankId=${bankId}`);
+
+
+export const terminaltypesfetch = () => api.get(ENDPOINTS.TERMINALTYPES);
+
+export const createmanfacturer = (manufacturer_name: string , model_name: string , model_description: string) => api.post(ENDPOINTS.createmanfacturer, { manufacturer_name , model_name , model_description });
+
+export const createModel = (data: { manufacturer_id: number; model_name: string; description?: string }) => api.post(ENDPOINTS.CREATEMODEL, data);
+
+export const createbank = (data: { bank_name: string; bank_code: string; address: string; phone_number: string; secondaryPhone?: string; email?: string; status: "ACTIVE" | "INACTIVE"; existingTerminalTypeIds: number[]; employeeIdsToRemove: number[]; terminalTypeIdsToRemove: number[]; terminalTypesToAdd: { id: number }[]; employees: { firstName: string; lastName: string; email: string; phone: string; plainPassword: string; }[] }) => api.post(ENDPOINTS.CREATEBANK, data);
+
+export const updatebank = (id: number, data: { bank_name: string; bank_code: string; address: string; phone_number?: string; secondaryPhone?: string; email?: string; status: "ACTIVE" | "INACTIVE"; existingTerminalTypeIds: number[]; employees: { firstName: string; lastName: string; email: string; phone?: string; plainPassword?: string; }[] }) => api.put(`${ENDPOINTS.UPDATEBANK}/${id}`, data);

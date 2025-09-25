@@ -1,8 +1,9 @@
+import TPESTable from "@/components/shared/tables/TPE_MANAGER/TPEmanager";
+
 export default function TPEPage() {
   return (
     <div>
-      <h1>Liste des TPEs</h1>
-      {/* Add your TPE list component here */}
+      <TPESTable />
     </div>
   );
 }

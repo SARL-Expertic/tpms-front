@@ -26,6 +26,7 @@ type DynamicModalProps = {
   disableCancel?: boolean
   onClose?: () => void
   onReset?: () => void
+  BTNCOLOR?: string
 }
 
 export function DynamicModal({
@@ -42,6 +43,7 @@ export function DynamicModal({
   disableCancel = false,
   onClose,
   onReset,
+  BTNCOLOR='blue',
 }: DynamicModalProps) {
   const [openUncontrolled, setOpenUncontrolled] = useState(defaultOpen)
   const isControlled = controlledOpen !== undefined
@@ -79,7 +81,7 @@ export function DynamicModal({
     <Dialog open={open} onOpenChange={setOpen}>
       {triggerLabel && (
         <DialogTrigger asChild>
-          <Button className="bg-blue-600 hover:scale-105 cursor-pointer py-5 px-6 text-white hover:bg-blue-700">
+          <Button className={`bg-${BTNCOLOR}-600 hover:scale-105 cursor-pointer py-5 px-6 text-white hover:bg-${BTNCOLOR}-700`}>
             {triggerLabel}
           </Button>
         </DialogTrigger>

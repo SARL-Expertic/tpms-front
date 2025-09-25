@@ -23,12 +23,14 @@ interface DataTableProps<TData, TValue> {
   extra?: {
     refreshTable?: () => void
   }
+  recherche?: boolean
 }
 
 export function DataTable<TData extends Record<string, any>, TValue>({
   columns,
   data,
   filters,
+  recherche = true,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
   const [filterState, setFilterState] = useState<Record<string, string>>({})
@@ -71,6 +73,7 @@ const filteredData = useMemo(() => {
     <div className="rounded-2xl w-full shadow-md bg-white dark:bg-zinc-900 p-4 space-y-4">
 
       {/* 🔍 Global and Column Filters */}
+   {recherche &&
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Input
           placeholder="Recherche globale..."
@@ -113,7 +116,7 @@ const filteredData = useMemo(() => {
 
         </div>
       </div>
-
+}
       {/* 🧾 Table */}
       <Table>
         <TableHeader>

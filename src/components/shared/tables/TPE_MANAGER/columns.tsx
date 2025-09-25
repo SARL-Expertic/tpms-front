@@ -2,20 +2,22 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
+import { TPEDetailsButton } from "../../modal/tpe/TPEdetailsButton"
 
 // Type for TPE row
 export type TPE = {
   id: string
-  serialNumber: string
   type: string
   model: string
   manufacturer: string
   telecomOperator: string
+  label: string
   status: string
   bankId: string | number
   clientId: string | number
   purchaseDate?: string
   warrantyExpiry?: string
+  createdAt?: string
   updatedAt?: string
 }
 
@@ -27,21 +29,15 @@ export const TPEColumns: ColumnDef<TPE>[] = [
     cell: ({ row }) => <span>{row.original.id}</span>,
   },
   {
-    accessorKey: "serialNumber",
-    header: "SN",
-    cell: ({ row }) => (
-      <Badge className="bg-blue-100 text-blue-600">
-        {row.original.serialNumber}
-      </Badge>
-    ),
-  },
-  {
     accessorKey: "model",
     header: "MODÈLE",
     cell: ({ row }) => (
       <div className="flex flex-col">
         <h1 className="font-semibold">{row.original.manufacturer}</h1>
         <h1>{row.original.model}</h1>
+        {row.original.label && row.original.label !== "-" && (
+          <small className="text-gray-500">{row.original.label}</small>
+        )}
       </div>
     ),
   },
@@ -91,5 +87,12 @@ export const TPEColumns: ColumnDef<TPE>[] = [
     accessorKey: "updatedAt",
     header: "MIS À JOUR",
     cell: ({ row }) => <span>{row.original.updatedAt || "-"}</span>,
+  },
+  {
+    id: "actions",
+    header: "ACTIONS",
+    cell: ({ row }) => (
+      <TPEDetailsButton tpe={row.original} />
+    ),
   },
 ]
