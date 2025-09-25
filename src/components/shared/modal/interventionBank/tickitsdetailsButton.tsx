@@ -58,10 +58,12 @@ export function TicketDetailsButton({ ticket, onSave }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTicket, setEditedTicket] = useState<Ticket>({ ...ticket });
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
   // Function to handle the GET request
   const handleGetRequest = async () => {
     setIsLoading(true);
+    setSuccessMessage(''); // Clear any previous message
     try {
       // Example GET request with ticketId as query parameter
       const response: any = await closeticket(parseInt(id));
@@ -69,10 +71,10 @@ export function TicketDetailsButton({ ticket, onSave }: Props) {
       if (response.status !== "success") {
         throw new Error("Failed to Close ticket");
       }
-      alert("Ticket fermé avec succès!");
+      setSuccessMessage("Ticket fermé avec succès!");
     } catch (error) {
       console.error("Error making GET request:", error);
-      alert("Erreur lors de la fermeture du ticket");
+      setSuccessMessage("Erreur lors de la fermeture du ticket");
     } finally {
       setIsLoading(false);
     }
@@ -197,6 +199,17 @@ export function TicketDetailsButton({ ticket, onSave }: Props) {
       cancelLabel="Fermer"
     >
       <div className="space-y-6 p-1">
+        {/* Success/Error Message */}
+        {successMessage && (
+          <div className={`p-4 rounded-lg text-center font-medium ${
+            successMessage.includes('succès') || successMessage.includes('Ticket fermé') 
+              ? 'bg-green-100 text-green-800 border border-green-300' 
+              : 'bg-red-100 text-red-800 border border-red-300'
+          }`}>
+            {successMessage}
+          </div>
+        )}
+        
         {/* Ticket Header */}
         <div className="dark:from-slate-800 dark:to-gray-900 rounded-lg p-4">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
