@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, terminalperbankfetch, fetchConsumables } from "@/app/api/tickets"
+import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchbanks, fetchClients, terminalperbankfetch, fetchConsumables, CreateNetworkCheckAccountManager, CreateinterventionAccountManager, CreateDeblockingAccountManager, CreateconsumableAccountManager } from "@/app/api/tickets"
 import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "date-fns"
@@ -499,11 +499,11 @@ const handleSubmit = async () => {
     
     switch (activeTab) {
       case 'network':
-        await createNetworkCheckTicket(basePayload);
+        await CreateNetworkCheckAccountManager(basePayload);
         break;
         
       case 'intervention':
-        await createInterventionTicket({
+        await CreateinterventionAccountManager({
           ...basePayload,
           terminal_type_id: interventionData.terminal_type_id!,
           problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
@@ -511,16 +511,16 @@ const handleSubmit = async () => {
         break;
         
       case 'unblocking':
-        await createDeblockingTicket({
+        await CreateDeblockingAccountManager({
           bank_id: selectedBank ? selectedBank.id : null,
           notes: description,
           deblockingType: unblockingData.blockedReason,
-          terminal_types: unblockingData.terminal_types,
+          terminal_types: unblockingData.terminal_types.map(t => t.terminal_type_id),
         });
         break;
         
       case 'consumable':
-        await createConsumableTicket({
+        await CreateconsumableAccountManager({
           ...basePayload,
           consumables: consumableData.items.map(item => ({
             type: item.type === 'AUTRE' ? item.customType || 'Autre' : item.type,

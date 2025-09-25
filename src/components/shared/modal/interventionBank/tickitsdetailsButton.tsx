@@ -66,13 +66,13 @@ export function TicketDetailsButton({ ticket, onSave }: Props) {
       // Example GET request with ticketId as query parameter
       const response: any = await closeticket(parseInt(id));
 
-      if (response.staus != "success") {
+      if (response.status !== "success") {
         throw new Error("Failed to Close ticket");
       }
-      alert("Closed Ticket successful!");
+      alert("Ticket fermé avec succès!");
     } catch (error) {
       console.error("Error making GET request:", error);
-      alert("Error making request");
+      alert("Erreur lors de la fermeture du ticket");
     } finally {
       setIsLoading(false);
     }

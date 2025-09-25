@@ -6,6 +6,12 @@ export const ENDPOINTS = {
   INTERVENTION: "/api/bank-employee/ticket/intervention",
   TPE: "/api/bank-employee/tpe",
   DEBLOCKING: "/api/bank-employee/ticket/deblocking-order",
+
+NETWORK_CHECKACCOUNT_MANAGER: "/api/account-manager/ticket/network-check",
+  INTERVENTIONACCOUNT_MANAGER: "/api/account-manager/ticket/intervention",
+  DEBLOCKINGACCOUNT_MANAGER: "/api/account-manager/ticket/deblocking-order",
+  CONSUMABLEACCOUNT_MANAGER: "/api/account-manager/ticket/consumable",
+
   CLIENTS: "/api/bank-employee/client",
   CONSUMABLE: "/api/bank-employee/ticket/consumable",
   USER: "/auth/me",

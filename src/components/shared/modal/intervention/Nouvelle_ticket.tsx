@@ -128,7 +128,7 @@ const handleDairaChange = (value: string) => {
 
 
 useEffect(() => {
-  clientfetch()
+  fetchClients()
     .then((res) => {
       setclientsfetch(res.data.clients || []);
     })
