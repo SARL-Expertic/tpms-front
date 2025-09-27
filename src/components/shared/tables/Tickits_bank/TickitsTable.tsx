@@ -1,4 +1,3 @@
-
 "use client"
 import { DataTable } from "../data-table"
 import { useEffect, useState } from "react"
@@ -7,7 +6,9 @@ import { format } from "date-fns"
 import { filter_Tickets_manager } from "@/constants/tickets/filter_Tickets_manager"
 import { createTickitColumns } from "./columns"
 import CreateTicketButton from "../../modal/interventionBank/Nouvelle_ticket"
-
+import { CardSkeleton } from "@/components/magic-loaders/card-skeleton"
+import { MagicalSpinner } from "@/components/magic-loaders/magical-spinner"
+import { TableSkeleton } from "@/components/magic-loaders/table-skeleton"
 
 export default function TickitsTable() {
   const [tickets, setTickets] = useState([])
@@ -26,35 +27,39 @@ export default function TickitsTable() {
     return map[TYPE] || TYPE;
   }
 
-const entofr_status = (STATUS: string): string => {
+  const entofr_status = (STATUS: string): string => {
     const map: Record<string, string> = {
       "REQUESTED": "DEMANDÉ",
-      "PENDING": "EN ATTENTE", 
       "ASSIGNED": "ASSIGNÉ",
-      "HIDDEN_PENDING_APPROVAL": "EN ATTENTE D'APPROBATION (MASQUÉ)",
-      "HIDDEN": "MASQUÉ",
-      "CLIENT_PROBLEM": "PROBLÈME CLIENT",
+      "PENDING": "EN ATTENTE", 
       "COMPLETED": "CLOTURÉ",
+      "CLIENT_PROBLEM": "PROBLÈME CLIENT",
       "DELIVERED": "LIVRÉ", 
       "CANCELLED": "ANNULÉ",
+      "HIDDEN_PENDING_APPROVAL": "EN ATTENTE D'APPROBATION (MASQUÉ)",
+      "HIDDEN": "MASQUÉ",
       "IN_PROGRESS": "EN COURS"
     };
     return map[STATUS] || STATUS;
-};
+  };
 
   // Function to fetch and refresh tickets
   const fetchAndSetTickets = () => {
     setLoading(true)
     fetchTickets_Manager()
       .then((res) => {
-    const transformed = res.data.map((ticket: any) => ({
+        const transformed = res.data.map((ticket: any) => ({
           id: ticket?.id ?? '',
           type: entofr_Type(ticket?.type ?? ''),
           status: entofr_status(ticket?.status ?? ''),
           note: ticket?.notes ?? '',
           model: ticket?.tpe?.model ?? '-',
           brand: ticket?.tpe?.manufacturer ?? '-',
-          bank: ticket?.bank?.name ?? '-',
+          bankname: ticket?.bank?.name ?? '-',
+          bank: ticket?.bank ? {
+            id: ticket?.bank?.id ?? 0,
+            name: ticket?.bank?.name ?? '-',
+          } : undefined,
           tpe: {
             tpetype: ticket?.tpe?.terminalType?.id ?? '-',
             serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
@@ -78,7 +83,6 @@ const entofr_status = (STATUS: string): string => {
             brand: ticket?.client?.brand ?? '-',
             phoneNumber: ticket?.client?.phoneNumber ?? '-',
             mobileNumber: ticket?.client?.mobileNumber ?? '-',
-          
             location: {
               wilaya: ticket?.client?.location?.wilaya ?? 'N/A',
               daira: ticket?.client?.location?.daira ?? 'N/A',
@@ -118,15 +122,35 @@ const entofr_status = (STATUS: string): string => {
   return (
     <div className="mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Tableau des demandes</h1>
-    <CreateTicketButton onCreate={fetchAndSetTickets} />
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 
+          bg-clip-text text-transparent">
+          Tableau des demandes
+        </h1>
+        <CreateTicketButton onCreate={fetchAndSetTickets} />
       </div>
+      
       {loading ? (
-        <div>Chargement...</div>
+        <div className="space-y-6">
+          {/* Choose one of these loading components: */}
+          {/* <TableSkeleton /> */}
+          {/* or */}
+          {/* <MagicalSpinner /> */}
+          {/* or */}
+          <CardSkeleton />
+        </div>
       ) : error ? (
-        <div>Erreur lors du chargement des tickets.</div>
+        <div className="text-center py-12">
+          <div className="text-red-500 text-lg">Erreur lors du chargement des tickets.</div>
+          <button 
+            onClick={fetchAndSetTickets}
+            className="mt-4 px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 
+              text-white rounded-lg hover:from-purple-600 hover:to-blue-600 
+              transition-all duration-200"
+          >
+            Réessayer
+          </button>
+        </div>
       ) : (
-
         <DataTable
           columns={createTickitColumns(fetchAndSetTickets)}
           data={tickets}
@@ -135,5 +159,4 @@ const entofr_status = (STATUS: string): string => {
       )}
     </div>
   )
-
 }

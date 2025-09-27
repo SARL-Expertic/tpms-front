@@ -3,7 +3,11 @@ export interface Ticket {
   type: string;
   status: string;
   note: string;
-  bank?: string;
+  bankname?: string;
+  bank?: {
+    id: number;
+    name: string;
+  };
   tpe: {
     serialNumber: string;
     model: string;
@@ -17,24 +21,32 @@ export interface Ticket {
     brand: string;
     phoneNumber: string;
     mobileNumber: string;
-  location: {
-    wilaya: string;
-    daira: string;
-    address: string;
+    location: {
+      wilaya: string;
+      daira: string;
+      address: string;
+    };
   };
   requestDate: string;   // already formatted with date-fns
   completedDate: string; // already formatted with date-fns
   deblockingOrder?: {
     id: string;
     type: string;
-    items: { id: number; model: string; brand: string; serialNumber: string }[];
+    items: { 
+      id: number; 
+      terminalType: {
+        manufacturer: { name: string; };
+        model: { name: string; };
+      };
+      status: string;
+      requestDate?: string;
+    }[];
   };
   problemDescription?: string;
   intervention?: {
     problem: string;
   };
-};
-consumableRequest?: {
+  consumableRequest?: {
     items: { type: string; quantity: number; }[];
   };
 }

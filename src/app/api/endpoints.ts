@@ -1,3 +1,5 @@
+import { updateconsumableitem } from "./tickets";
+
 export const ENDPOINTS = {
   LOGIN: "/auth/login",
   REGISTER: "/auth/register",
@@ -29,4 +31,10 @@ NETWORK_CHECKACCOUNT_MANAGER: "/api/account-manager/ticket/network-check",
 
   CREATEBANK: "/api/account-manager/bank",
   UPDATEBANK: "/api/account-manager/bank",
+
+  UPDATENETWORKCHECKTICKET: "/api/account-manager/ticket/network-check",
+  UPDATEINTERVENTIONTICKET: "/api/account-manager/ticket/intervention",
+  UPDATECONSUMABLETICKET: "/api/account-manager/ticket/consumable",
+  UPDATEDEBLOCKINGTICKET: "/api/account-manager/ticket/deblocking-order",
+
 };

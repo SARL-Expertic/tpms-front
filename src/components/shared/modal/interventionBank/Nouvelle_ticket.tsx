@@ -245,6 +245,13 @@ const [consumableData, setConsumableData] = useState<ConsumableData>({
   items: [],
 });
 
+// Add terminal selection state for consumable
+const [consumableTerminalData, setConsumableTerminalData] = useState({
+  selectedBrand: '',
+  selectedModel: '',
+  terminal_type_id: null as number | null,
+});
+
 const handleAddConsumable = () => {
   setConsumableData(prev => ({
     ...prev,
@@ -266,6 +273,16 @@ const handleConsumableItemChange = (index: number, field: string, value: string)
       i === index ? { ...item, [field]: value } : item
     )
   }));
+  
+  // Clear any stock errors when user changes the item
+  if (field === 'type' || field === 'quantity') {
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.consumableStock;
+      delete newErrors[`item-${index}-stock`];
+      return newErrors;
+    });
+  }
 };
 
 const handleQuantityChange = (index: number, change: number) => {
@@ -427,6 +444,10 @@ const validateForm = (): boolean => {
           }
         });
       }
+      // Add terminal validation for consumable
+      if (!consumableTerminalData.terminal_type_id) {
+        newErrors.consumableTerminal = "Veuillez sélectionner un TPE.";
+      }
       break;
   }
   
@@ -472,9 +493,14 @@ const resetForm = () => {
   setConsumableData({
     items: []
   })
+  setConsumableTerminalData({
+    selectedBrand: '',
+    selectedModel: '',
+    terminal_type_id: null
+  })
   setPhoto(null)
   setPreview(null)
-  setErrors({})
+  setErrors({}) // This will clear all error messages including stock errors
   setSuccessMessage('')
 }
 
@@ -515,7 +541,7 @@ const handleSubmit = async () => {
           bank_id: selectedBank ? selectedBank.id : null,
           notes: description,
           deblockingType: unblockingData.blockedReason,
-          terminal_types: unblockingData.terminal_types.map(t => t.terminal_type_id),
+          terminal_types: unblockingData.terminal_types, // Send as array of objects with terminal_type_id
         });
         break;
         
@@ -526,6 +552,7 @@ const handleSubmit = async () => {
             type: item.type === 'AUTRE' ? item.customType || 'Autre' : item.type,
             quantity: item.quantity
           })),
+          terminal_type_id: consumableTerminalData.terminal_type_id,
         });
         break;
     }
@@ -537,9 +564,32 @@ const handleSubmit = async () => {
       setTimeout(() => onCreate(), 1000); // Delay to show success message
     }
     return false;
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    alert("Erreur lors de la création du ticket.");
+    
+    // Handle stock validation error for consumables
+    if (activeTab === 'consumable' && error?.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+      
+      // Check if it's a stock error
+      if (errorMessage.includes('Not enough stock')) {
+        // Extract item name and quantities from the error message
+        const match = errorMessage.match(/Not enough stock for "([^"]+)" \(have (\d+), requested (\d+)\)/);
+        if (match) {
+          const [, itemName, available, requested] = match;
+          setErrors({ 
+            consumableStock: `❌ Stock insuffisant pour "${itemName}": Stock disponible: ${available}, Quantité demandée: ${requested}. Veuillez réduire la quantité ou choisir un autre article.` 
+          });
+        } else {
+          setErrors({ consumableStock: `❌ Stock insuffisant: ${errorMessage}` });
+        }
+        return false;
+      }
+    }
+    
+    // Generic error handling
+    const errorMsg = error?.response?.data?.message || error?.message || "Erreur lors de la création du ticket.";
+    setErrors({ general: errorMsg });
     return false;
   }
 };
@@ -587,6 +637,20 @@ const handleSubmit = async () => {
             {successMessage}
           </div>
         )}
+        
+        {/* General Error Message */}
+        {errors.general && (
+          <div className="bg-red-100 text-red-700 px-4 py-3 rounded-md">
+            {errors.general}
+          </div>
+        )}
+        
+        {/* Consumable Stock Error */}
+        {errors.consumableStock && (
+          <div className="bg-red-100 text-red-700 px-4 py-3 rounded-md">
+            {errors.consumableStock}
+          </div>
+        )}
         {/* Ticket Type Tabs */}
      <h1 className=" font-bold text-red-600">Choisir le type de demande * : </h1>
 
@@ -596,7 +660,12 @@ const handleSubmit = async () => {
       {tabs.map((tab) => (
         <button
           key={tab.id}
-          onClick={() => setActiveTab(tab.id as any)}
+          onClick={() => {
+            setActiveTab(tab.id as any);
+            // Clear errors when switching tabs
+            setErrors({});
+            setSuccessMessage('');
+          }}
           className={`
             relative py-3  px-4 text-sm cursor-pointer font-medium flex items-center gap-2 
             transition-all duration-300 ease-in-out rounded-lg
@@ -1158,6 +1227,108 @@ const handleSubmit = async () => {
           {activeTab === 'consumable' && (
   <div className="space-y-6">
 
+  {/* TPE Information Section for Consumable */}
+  <div className="bg-white p-4 rounded-lg border shadow-sm">
+    <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-800">
+      <FaCreditCard className="text-blue-500" />
+      Informations TPE
+    </h3>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Marque */}
+      <div className="flex flex-col">
+        <label className="text-sm font-medium mb-2">Marque :</label>
+        <Select
+          value={consumableTerminalData.selectedBrand}
+          onValueChange={(value) => {
+            setConsumableTerminalData(prev => ({
+              ...prev,
+              selectedBrand: value,
+              selectedModel: '',
+              terminal_type_id: null
+            }));
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Sélectionnez une marque" />
+          </SelectTrigger>
+          <SelectContent>
+            {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
+              <SelectItem key={brand} value={brand}>
+                {brand}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Modèle */}
+      <div className="flex flex-col">
+        <label className="text-sm font-medium mb-2">Modèle :</label>
+        <Select
+          value={consumableTerminalData.selectedModel}
+          onValueChange={(value) => {
+            setConsumableTerminalData(prev => ({
+              ...prev,
+              selectedModel: value,
+              terminal_type_id: null
+            }));
+          }}
+          disabled={!consumableTerminalData.selectedBrand}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Sélectionnez un modèle" />
+          </SelectTrigger>
+          <SelectContent>
+            {tpes
+              .filter((t) => t.manufacturer === consumableTerminalData.selectedBrand)
+              .map((t) => t.model)
+              .filter((v, i, arr) => arr.indexOf(v) === i) // unique
+              .map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* TPE Selection */}
+      <div className="flex flex-col">
+        <label className="text-sm font-medium mb-2">Sélectionner TPE :</label>
+        <Select
+          value={consumableTerminalData.terminal_type_id?.toString() || ""}
+          onValueChange={(value) => {
+            const selectedId = parseInt(value);
+            setConsumableTerminalData(prev => ({
+              ...prev,
+              terminal_type_id: selectedId
+            }));
+          }}
+          disabled={!consumableTerminalData.selectedModel}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Sélectionnez un TPE" />
+          </SelectTrigger>
+          <SelectContent>
+            {tpes
+              .filter(
+                (t) =>
+                  t.manufacturer === consumableTerminalData.selectedBrand &&
+                  t.model === consumableTerminalData.selectedModel
+              )
+              .map((t) => (
+                <SelectItem key={t.id} value={t.id.toString()}>
+                  {t.manufacturer} - {t.model}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+    {errors.consumableTerminal && (
+      <p className="text-red-500 text-xs mt-2">{errors.consumableTerminal}</p>
+    )}
+  </div>
 
   {/* Consumable Items Section */}
   <div className="bg-white p-4 rounded-lg border shadow-sm">
@@ -1211,8 +1382,24 @@ const handleSubmit = async () => {
                       </SelectTrigger>
                       <SelectContent>
                         {consumableTypes.map((consumableType) => (
-                          <SelectItem key={consumableType.id} value={consumableType.type}>
-                            {consumableType.type} - Stock: {consumableType.quantity}
+                          <SelectItem 
+                            key={consumableType.id} 
+                            value={consumableType.type}
+                            disabled={consumableType.quantity === 0}
+                            className={consumableType.quantity === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span>{consumableType.type}</span>
+                              <span className={`ml-2 text-xs px-2 py-1 rounded ${
+                                consumableType.quantity === 0 
+                                  ? 'bg-red-100 text-red-700' 
+                                  : consumableType.quantity < 5 
+                                    ? 'bg-orange-100 text-orange-700' 
+                                    : 'bg-green-100 text-green-700'
+                              }`}>
+                                Stock: {consumableType.quantity}
+                              </span>
+                            </div>
                           </SelectItem>
                         ))}
                         <SelectItem value="AUTRE">Autre</SelectItem>
@@ -1257,6 +1444,19 @@ const handleSubmit = async () => {
                   {errors[`item-${index}-quantity`] && (
                     <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-quantity`]}</p>
                   )}
+                  
+                  {/* Stock warning */}
+                  {item.type && item.quantity && (() => {
+                    const consumableType = consumableTypes.find(c => c.type === item.type);
+                    if (consumableType && item.quantity > consumableType.quantity) {
+                      return (
+                        <p className="text-orange-500 text-xs mt-1 flex items-center gap-1">
+                          ⚠️ Attention: Stock disponible: {consumableType.quantity}, Demandé: {item.quantity}
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 {item.type === 'AUTRE' && (

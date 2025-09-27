@@ -18,6 +18,7 @@ import {
   FaBoxOpen,
   FaFilter 
 } from "react-icons/fa";
+import { CardSkeleton } from "@/components/magic-loaders/card-skeleton";
 
 type Consumable = {
   id: number;
@@ -79,26 +80,8 @@ export default function ConsumablesTable() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-6 w-20" />
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full mb-2" />
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+                <CardSkeleton />
+      
     );
   }
 

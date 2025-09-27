@@ -19,6 +19,7 @@ import {
 } from "react-icons/fa"
 import NewBrandModal from "../../modal/tpe/Nouvelle_marque"
 import NewModelModal from "../../modal/tpe/Nouvelle_model"
+import { CardSkeleton } from "@/components/magic-loaders/card-skeleton"
 
 interface TPE {
   id: string
@@ -155,22 +156,8 @@ export default function TPESTable() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid gap-4">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-48" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+                <CardSkeleton />
+      
     )
   }
 

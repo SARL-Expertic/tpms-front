@@ -7,6 +7,7 @@ import { format } from "date-fns"
 import { filter_Tickets } from "@/constants/tickets/filter_Tickets"
 import { TickitColumns } from "./columns"
 import CreateTicketButton from "../../modal/intervention/Nouvelle_ticket"
+import { CardSkeleton } from "@/components/magic-loaders/card-skeleton"
 
 export default function TickitsTable() {
   const [tickets, setTickets] = useState([])
@@ -26,14 +27,21 @@ export default function TickitsTable() {
   }
 
 
-  const entofr_status = (STATUS: string): string => {
+ const entofr_status = (STATUS: string): string => {
     const map: Record<string, string> = {
+      "REQUESTED": "DEMANDÉ",
+      "ASSIGNED": "ASSIGNÉ",
+      "PENDING": "EN ATTENTE", 
       "COMPLETED": "CLOTURÉ",
-      "IN_PROGRESS": "EN COURS",
-      "PENDING": "EN ATTENTE",
+      "CLIENT_PROBLEM": "PROBLÈME CLIENT",
+      "DELIVERED": "LIVRÉ", 
+      "CANCELLED": "ANNULÉ",
+      "HIDDEN_PENDING_APPROVAL": "EN ATTENTE D'APPROBATION (MASQUÉ)",
+      "HIDDEN": "MASQUÉ",
+      "IN_PROGRESS": "EN COURS"
     };
     return map[STATUS] || STATUS;
-  }
+};
 
   useEffect(() => {
     fetchTickets()
@@ -106,7 +114,7 @@ export default function TickitsTable() {
     <CreateTicketButton />
       </div>
       {loading ? (
-        <div>Chargement...</div>
+          <CardSkeleton />
       ) : error ? (
         <div>Erreur lors du chargement des tickets.</div>
       ) : (

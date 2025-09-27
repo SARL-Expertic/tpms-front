@@ -22,9 +22,9 @@ export const createTickitColumns = (onRefresh: () => void): ColumnDef<Ticket>[] 
   },
 
    {
-    accessorKey: "bank",
+    accessorKey: "bankname",
     header: "BANQUE",
-    cell: ({ row }) => <span>{row.original.bank}</span>,
+    cell: ({ row }) => <span>{row.original.bank?.name}</span>,
   },
 
   {

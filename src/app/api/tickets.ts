@@ -117,6 +117,8 @@ export const fetchTPEByBank = (bankId: number) =>
 export const fetchtpetypes = () => api.get(ENDPOINTS.TPEMODELS);
 
 export const fetchConsumablesItems = () => api.get(ENDPOINTS.CONSUMABLEITEMS);
+
+
 export const updateconsumableitem = (
   id: number,
   quantity: number,
@@ -126,6 +128,8 @@ export const createconsumableitem = (quantity: number, type: string) =>
   api.post(ENDPOINTS.CONSUMABLEITEMS, { quantity, type });
 export const deleteconsumableitem = (id: number) =>
   api.delete(`${ENDPOINTS.CONSUMABLEITEMS}/${id}`);
+
+
 
 export const terminalperbankfetch = (bankId: number) =>
   api.get(`${ENDPOINTS.TERMINALTYPES}/terminal?bankId=${bankId}`);
@@ -205,6 +209,7 @@ export const CreateinterventionAccountManager = (
 export const CreateconsumableAccountManager = (
   data: NewOrExistingClient & {
     consumables: { type: string; quantity: number }[];
+    terminal_type_id?: number | null;
   }
 ) => api.post(ENDPOINTS.CONSUMABLEACCOUNT_MANAGER, data);
 
@@ -212,9 +217,24 @@ export const CreateDeblockingAccountManager = (data: {
   bank_id?: number | null;
   notes: string;
   deblockingType: string;
-  terminal_types: number[];
+  terminal_types: { terminal_type_id: number }[];
 }) => api.post(ENDPOINTS.DEBLOCKINGACCOUNT_MANAGER, data);
 
 export const CreateNetworkCheckAccountManager = (
   data: ClientBase & { notes: string }
 ) => api.post(ENDPOINTS.NETWORK_CHECKACCOUNT_MANAGER, data);
+
+export const UpdateNetworkCheckTicket = (
+  ticket_id: number,
+  data: ClientBase & { client_id: number; status?: string }
+) => api.put(`${ENDPOINTS.UPDATENETWORKCHECKTICKET}/${ticket_id}`, data);
+
+
+export const Updateconsoambleticket = (
+  ticket_id: number,
+  data: NewOrExistingClient & {
+    consumables: { type: string; quantity: number }[];
+    terminal_type_id?: number | null;
+    status?: string;
+  }
+) => api.put(`${ENDPOINTS.UPDATECONSUMABLETICKET}/${ticket_id}`, data);
