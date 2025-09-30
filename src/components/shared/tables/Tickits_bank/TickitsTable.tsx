@@ -143,8 +143,8 @@ export default function TickitsTable() {
           <div className="text-red-500 text-lg">Erreur lors du chargement des tickets.</div>
           <button 
             onClick={fetchAndSetTickets}
-            className="mt-4 px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 
-              text-white rounded-lg hover:from-purple-600 hover:to-blue-600 
+            className="mt-4 px-6 py-2 bg-gradient-to-r from-blue-700 to-blue-500 
+              text-white rounded-lg hover:from-blue-800 hover:to-blue-600 
               transition-all duration-200"
           >
             Réessayer

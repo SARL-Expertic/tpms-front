@@ -73,6 +73,7 @@ export const fetchClients = () => api.get(ENDPOINTS.CLIENTS);
 export const createConsumableTicket = (
   data: NewOrExistingClient & {
     consumables: { type: string; quantity: number }[];
+    terminal_type_id?: number | null;
   }
 ) => api.post(ENDPOINTS.CONSUMABLE, data);
 

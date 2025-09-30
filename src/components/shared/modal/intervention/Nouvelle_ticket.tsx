@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchClients, fetchTPE } from "@/app/api/tickets"
+import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchClients, fetchTPE, fetchConsumablesItems } from "@/app/api/tickets"
 import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "date-fns"
@@ -45,11 +45,11 @@ type UnblockingData = {
   blockedReason: string;
   previousAttempts: string;
   requiredAction: string;
-  tpes: {
-    brand: string;
-    model: string;
-    quantity: string;
-  }[];
+  notes: string;
+  terminal_types: { terminal_type_id: number }[];
+  selectedBrand?: string;
+  selectedModel?: string;
+  selectedSerial?: string;
 }
 
 type InterventionData = {
@@ -58,13 +58,19 @@ type InterventionData = {
   tpeBrand: string;
   tpeModel: string;
   tpeSn: string;
+  terminal_type_id: number | null;
 }
 
 type ConsumableData = {
   items: {
     type: string;
     quantity: number;
+    customType?: string;
   }[];
+  tpeBrand: string;
+  tpeModel: string;
+  tpeSn: string;
+  terminal_type_id: number | null;
 }
 
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
@@ -73,24 +79,8 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
 
-  const [clientsfetch, setclientsfetch] = useState([{
-    id:0,
-  }
-  ])
-  const [selectedClient, setSelectedClient] = useState(
-    {
-      id:0,
-      commercialName: '',
-      brand: '',
-      phoneNumber: '',
-      location: {
-        wilaya: '',
-        daira: '',
-        address: '',
-      },
-
-    }
-  )
+  const [clientsfetch, setclientsfetch] = useState<any[]>([]);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
 
 // Fix the wilaya selection state handling
 const [client, setClient] = useState<Client>({
@@ -158,14 +148,21 @@ useEffect(() => {
 
 const handleSelect = (id: number | string) => {
     const clientsel = clientsfetch.find(c => c.id === Number(id))
-    setSelectedClient(clientsel)
+    if (clientsel) {
+      setSelectedClient(clientsel)
+    }
   }
 
 
   const [unblockingData, setUnblockingData] = useState({
     notes: "",
     blockedReason: "",
-    tpes: [] as { id: number }[],   // only ids
+    previousAttempts: "",
+    requiredAction: "",
+    terminal_types: [] as { terminal_type_id: number }[],
+    selectedBrand: "",
+    selectedModel: "",
+    selectedSerial: ""
   });
   
 
@@ -174,11 +171,16 @@ const handleSelect = (id: number | string) => {
           problemType: '',
           tpeBrand: '',
           tpeModel: '',
-          tpeSn: ''
+          tpeSn: '',
+          terminal_type_id: null
 });
 
 const [consumableData, setConsumableData] = useState<ConsumableData>({
   items: [],
+  tpeBrand: '',
+  tpeModel: '',
+  tpeSn: '',
+  terminal_type_id: null
 });
 
 const handleAddConsumable = () => {
@@ -195,7 +197,7 @@ const handleRemoveConsumable = (index: number) => {
   }));
 };
 
-const handleConsumableItemChange = (index: number, field: string, value: string) => {
+const handleConsumableItemChange = (index: number, field: string, value: string | number) => {
   setConsumableData(prev => ({
     ...prev,
     items: prev.items.map((item, i) => 
@@ -228,15 +230,34 @@ const handleQuantityChange = (index: number, change: number) => {
   const [successMessage, setSuccessMessage] = useState<string>('')
 
   const [tpes, setTpes] = useState<any[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<any>(null);
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [availableConsumableItems, setAvailableConsumableItems] = useState<any[]>([]);
+  const [selectedConsumableBrand, setSelectedConsumableBrand] = useState<any>(null);
+  const [availableConsumableModels, setAvailableConsumableModels] = useState<any[]>([]);
+  const [selectedUnblockingBrand, setSelectedUnblockingBrand] = useState<any>(null);
+  const [availableUnblockingModels, setAvailableUnblockingModels] = useState<any[]>([]);
 
   useEffect(() => {
+    // You may need to get the actual bank ID from context or props
+    // For now using a default bank ID of 1
     fetchTPE()
       .then((res) => {
-        setTpes(res.data.tpes || []); // <-- extract the array
+        setTpes(res.data || []); // New API structure
       })
       .catch((err) => {
         console.error("Error fetching TPEs:", err);
         setTpes([]);
+      });
+
+    // Fetch consumable items
+    fetchConsumablesItems()
+      .then((res) => {
+        setAvailableConsumableItems(res.data || []);
+      })
+      .catch((err) => {
+        console.error("Error fetching consumable items:", err);
+        setAvailableConsumableItems([]);
       });
   }, []);
   
@@ -275,9 +296,7 @@ const validateForm = (): boolean => {
       if (!unblockingData.blockedReason) {
         newErrors.blockedReason = "La raison du blocage est obligatoire.";
       }
-      if (unblockingData.tpes.length === 0) {
-        newErrors.tpes = "Veuillez ajouter au moins un TPE.";
-      }
+      // TPE selection is now optional - no validation required
       break;
       
     case 'intervention':
@@ -296,6 +315,9 @@ const validateForm = (): boolean => {
       if (!interventionData.tpeSn) {
         newErrors.tpeSn = "Le numéro de série du TPE est obligatoire.";
       }
+      if (!interventionData.terminal_type_id) {
+        newErrors.terminal_type_id = "Le type de terminal est obligatoire.";
+      }
       break;
       
     case 'consumable':
@@ -306,13 +328,25 @@ const validateForm = (): boolean => {
           if (!item.type) {
             newErrors[`item-${index}-type`] = "Le type est obligatoire.";
           }
-          if (!item.quantity || parseInt(item.quantity) < 1) {
+          if (!item.quantity || item.quantity < 1) {
             newErrors[`item-${index}-quantity`] = "La quantité doit être d'au moins 1.";
           }
           if (item.type === 'other' && !item.customType) {
             newErrors[`item-${index}-customType`] = "Veuillez préciser le type.";
           }
         });
+      }
+      if (!consumableData.tpeBrand) {
+        newErrors.consumableBrand = "La marque du TPE est obligatoire.";
+      }
+      if (!consumableData.tpeModel) {
+        newErrors.consumableModel = "Le modèle du TPE est obligatoire.";
+      }
+      if (!consumableData.tpeSn) {
+        newErrors.consumableSn = "Le numéro de série du TPE est obligatoire.";
+      }
+      if (!consumableData.terminal_type_id) {
+        newErrors.consumableTerminalId = "Le type de terminal est obligatoire.";
       }
       break;
   }
@@ -346,18 +380,34 @@ const resetForm = () => {
   setUnblockingData({
     blockedReason: '',
     notes: '',
-    tpes: []
+    previousAttempts: '',
+    requiredAction: '',
+    terminal_types: [],
+    selectedBrand: '',
+    selectedModel: '',
+    selectedSerial: ''
   })
   setInterventionData({
     problemCategory: '',
     problemType: '',
     tpeBrand: '',
     tpeModel: '',
-    tpeSn: ''
+    tpeSn: '',
+    terminal_type_id: null
   })
+  setSelectedBrand(null)
+  setAvailableModels([])
   setConsumableData({
-    items: []
+    items: [],
+    tpeBrand: '',
+    tpeModel: '',
+    tpeSn: '',
+    terminal_type_id: null
   })
+  setSelectedConsumableBrand(null)
+  setAvailableConsumableModels([])
+  setSelectedUnblockingBrand(null)
+  setAvailableUnblockingModels([])
   setPhoto(null)
   setPreview(null)
   setErrors({})
@@ -389,8 +439,7 @@ const handleSubmit = async () => {
       case 'intervention':
         await createInterventionTicket({
           ...basePayload,
-          tpe_model: interventionData.tpeModel,
-          tpe_serialNumber: interventionData.tpeSn,
+          terminal_type_id: interventionData.terminal_type_id || 0,
           problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
         });
         break;
@@ -399,15 +448,16 @@ const handleSubmit = async () => {
         await createDeblockingTicket({
           notes: description,
           deblockingType: unblockingData.blockedReason,
-          tpes: unblockingData.tpes,
+          terminal_types: unblockingData.terminal_types,
         });
         break;
         
       case 'consumable':
         await createConsumableTicket({
           ...basePayload,
+          terminal_type_id: consumableData.terminal_type_id || 0,
           consumables: consumableData.items.map(item => ({
-            type: item.type === 'other' ? item.customType || 'Autre' : item.type,
+            type: item.type === 'other' ? (item.customType || 'Autre') : item.type,
             quantity: item.quantity
           })),
         });
@@ -430,10 +480,87 @@ const handleSubmit = async () => {
     setUnblockingData(prev => ({ ...prev, [field]: value }))
   }
 
- const handleInterventionDataChange = (field: keyof InterventionData, value: string) => {
+ const handleInterventionDataChange = (field: keyof InterventionData, value: string | number) => {
   setInterventionData(prev => ({
     ...prev,
     [field]: value
+  }));
+};
+
+// Handle brand selection change for intervention
+const handleInterventionBrandChange = (brandName: string) => {
+  const brand = tpes.find((b: any) => b.manufacturer === brandName);
+  setSelectedBrand(brand);
+  setAvailableModels(brand?.models || []);
+  
+  // Update intervention data
+  setInterventionData(prev => ({
+    ...prev,
+    tpeBrand: brandName,
+    tpeModel: '',
+    terminal_type_id: null
+  }));
+};
+
+// Handle model selection change for intervention
+const handleInterventionModelChange = (modelName: string) => {
+  const selectedModel = availableModels.find((model: any) => model.model === modelName);
+  
+  setInterventionData(prev => ({
+    ...prev,
+    tpeModel: modelName,
+    terminal_type_id: selectedModel?.id || null
+  }));
+};
+
+// Handle brand selection change for consumable
+const handleConsumableBrandChange = (brandName: string) => {
+  const brand = tpes.find((b: any) => b.manufacturer === brandName);
+  setSelectedConsumableBrand(brand);
+  setAvailableConsumableModels(brand?.models || []);
+  
+  // Update consumable data
+  setConsumableData(prev => ({
+    ...prev,
+    tpeBrand: brandName,
+    tpeModel: '',
+    terminal_type_id: null
+  }));
+};
+
+// Handle model selection change for consumable
+const handleConsumableModelChange = (modelName: string) => {
+  const selectedModel = availableConsumableModels.find((model: any) => model.model === modelName);
+  
+  setConsumableData(prev => ({
+    ...prev,
+    tpeModel: modelName,
+    terminal_type_id: selectedModel?.id || null
+  }));
+};
+
+// Handle brand selection change for unblocking
+const handleUnblockingBrandChange = (brandName: string) => {
+  const brand = tpes.find((b: any) => b.manufacturer === brandName);
+  setSelectedUnblockingBrand(brand);
+  setAvailableUnblockingModels(brand?.models || []);
+  
+  // Update unblocking data
+  setUnblockingData(prev => ({
+    ...prev,
+    selectedBrand: brandName,
+    selectedModel: '',
+    selectedSerial: ''
+  }));
+};
+
+// Handle model selection change for unblocking
+const handleUnblockingModelChange = (modelName: string) => {
+  const selectedModel = availableUnblockingModels.find((model: any) => model.model === modelName);
+  
+  setUnblockingData(prev => ({
+    ...prev,
+    selectedModel: modelName
   }));
 };
 
@@ -555,7 +682,7 @@ const handleSubmit = async () => {
         <SelectValue placeholder="Choose a client" />
       </SelectTrigger>
       <SelectContent >
-        {clientsfetch.map((c) => (
+        {clientsfetch.map((c: any) => (
           <SelectItem key={c.id} value={c.id.toString()}>
             {c.commercialName}
           </SelectItem>
@@ -643,8 +770,7 @@ const handleSubmit = async () => {
   <Select
     value={client.location.daira}
     onValueChange={handleDairaChange}
-    disabled={!client.location.wilaya && client.existingClient}  
-      disabled={client.existingClient}   // 🔒 block editing
+    disabled={!client.location.wilaya || client.existingClient}  
   >
     <SelectTrigger className="w-full">
       <SelectValue placeholder="-- Sélectionnez une daira --" />
@@ -714,7 +840,8 @@ const handleSubmit = async () => {
 {/* TPE Management Section */}
 <div className="border-t pt-6 mt-6">
   <div className="flex justify-between items-center mb-4">
-    <h3 className="font-medium text-lg">Gestion des TPE</h3>
+    <h3 className="font-medium text-lg">Gestion des TPE (Optionnel)</h3>
+    <span className="text-sm text-gray-500">Vous pouvez ajouter des informations TPE si nécessaire</span>
   </div>
 
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -722,23 +849,16 @@ const handleSubmit = async () => {
     <div className="flex flex-col">
       <label className="text-sm font-medium mb-2">Marque :</label>
       <Select
-        onValueChange={(value) => {
-          setUnblockingData((prev) => ({
-            ...prev,
-            selectedBrand: value,
-            selectedModel: "",
-            selectedSerial: "",
-          }));
-        }}
         value={unblockingData.selectedBrand || ""}
+        onValueChange={handleUnblockingBrandChange}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sélectionnez une marque" />
+          <SelectValue placeholder="Sélectionnez une marque (optionnel)" />
         </SelectTrigger>
         <SelectContent>
-          {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
-            <SelectItem key={brand} value={brand}>
-              {brand}
+          {tpes.map((brand: any) => (
+            <SelectItem key={brand.manufacturer_id} value={brand.manufacturer}>
+              {brand.manufacturer}
             </SelectItem>
           ))}
         </SelectContent>
@@ -749,92 +869,88 @@ const handleSubmit = async () => {
     <div className="flex flex-col">
       <label className="text-sm font-medium mb-2">Modèle :</label>
       <Select
-        onValueChange={(value) => {
-          setUnblockingData((prev) => ({
-            ...prev,
-            selectedModel: value,
-            selectedSerial: "",
-          }));
-        }}
         value={unblockingData.selectedModel || ""}
-        disabled={!unblockingData.selectedBrand}
+        onValueChange={handleUnblockingModelChange}
+        disabled={!selectedUnblockingBrand || availableUnblockingModels.length === 0}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sélectionnez un modèle" />
+          <SelectValue placeholder="Sélectionnez un modèle (optionnel)" />
         </SelectTrigger>
         <SelectContent>
-          {tpes
-            .filter((t) => t.manufacturer === unblockingData.selectedBrand)
-            .map((t) => t.model)
-            .filter((v, i, arr) => arr.indexOf(v) === i) // unique
-            .map((model) => (
-              <SelectItem key={model} value={model}>
-                {model}
-              </SelectItem>
-            ))}
+          {availableUnblockingModels.map((model: any) => (
+            <SelectItem key={model.id} value={model.model}>
+              {model.model}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
 
-    {/* Numéro de Série */}
-   {/* Numéro de Série */}
-<div className="flex flex-col">
-  <label className="text-sm font-medium mb-2">N° de Série :</label>
-  <Select
-    onValueChange={(value) => {
-      const selected = tpes.find((t) => String(t.id) === value);
-      if (!selected) return;
-
-      setUnblockingData((prev) => ({
-        ...prev,
-        selectedSerial: selected.serialNumber, // ✅ real SN
-        tpes: [...prev.tpes, { id: selected.id }], // ✅ real ID
-      }));
-    }}
-    value={unblockingData.selectedSerial || ""}
-    disabled={!unblockingData.selectedModel}
-  >
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="Sélectionnez un numéro de série" />
-    </SelectTrigger>
-    <SelectContent>
-      {tpes
-        .filter(
-          (t) =>
-            t.manufacturer === unblockingData.selectedBrand &&
-            t.model === unblockingData.selectedModel
-        )
-        .map((t) => (
-          <SelectItem key={t.id} value={String(t.id)}>
-            {t.serialNumber}
-          </SelectItem>
-        ))}
-    </SelectContent>
-  </Select>
-</div>
-
+    {/* Numéro de série - Manual Input */}
+    <div className="flex flex-col">
+      <label className="text-sm font-medium mb-2">Numéro de série :</label>
+      <Input
+        type="text"
+        placeholder="Entrez le numéro de série (optionnel)"
+        value={unblockingData.selectedSerial || ''}
+        onChange={(e) => setUnblockingData(prev => ({ ...prev, selectedSerial: e.target.value }))}
+        className="w-full"
+      />
+    </div>
   </div>
 
+  {/* Add TPE Button */}
+  {unblockingData.selectedBrand && unblockingData.selectedModel && (
+    <div className="mt-4">
+      <Button
+        type="button"
+        onClick={() => {
+          const selectedModel = availableUnblockingModels.find((model: any) => model.model === unblockingData.selectedModel);
+          if (selectedModel) {
+            setUnblockingData(prev => ({
+              ...prev,
+              terminal_types: [...prev.terminal_types, { terminal_type_id: selectedModel.id }],
+              selectedBrand: '',
+              selectedModel: '',
+              selectedSerial: ''
+            }));
+            setSelectedUnblockingBrand(null);
+            setAvailableUnblockingModels([]);
+          }
+        }}
+        className="flex items-center gap-2"
+        variant="outline"
+      >
+        <FaPlus className="text-sm" />
+        Ajouter ce TPE
+      </Button>
+    </div>
+  )}
+
   {/* Selected TPEs list */}
-  {unblockingData.tpes.length > 0 && (
+  {unblockingData.terminal_types.length > 0 && (
     <div className="mt-6 space-y-2">
-      {unblockingData.tpes.map((tpe, index) => {
-        const fullTpe = tpes.find((t) => t.id === tpe.id);
+      <h4 className="font-medium text-gray-700">TPE sélectionnés :</h4>
+      {unblockingData.terminal_types.map((terminalType, index) => {
+        const fullModel = tpes
+          .flatMap(brand => brand.models)
+          .find((model: any) => model.id === terminalType.terminal_type_id);
+        const brand = tpes.find((b: any) => b.models.some((m: any) => m.id === terminalType.terminal_type_id));
+        
         return (
           <div
             key={index}
-            className="flex justify-between items-center p-3 border rounded-lg"
+            className="flex justify-between items-center p-3 border rounded-lg bg-gray-50"
           >
             <span>
-              {fullTpe?.manufacturer} – {fullTpe?.model} – SN:{" "}
-              <b>{fullTpe?.serialNumber}</b>
+              {brand?.manufacturer} – {fullModel?.model} (ID: {terminalType.terminal_type_id})
             </span>
             <button
               type="button"
               onClick={() =>
                 setUnblockingData((prev) => ({
                   ...prev,
-                  tpes: prev.tpes.filter((_, i) => i !== index),
+                  terminal_types: prev.terminal_types.filter((_, i) => i !== index),
                 }))
               }
               className="text-red-500 hover:text-red-700"
@@ -847,6 +963,7 @@ const handleSubmit = async () => {
     </div>
   )}
 </div>
+
 
 
               </div>
@@ -940,68 +1057,63 @@ const handleSubmit = async () => {
         <FaCreditCard className="text-blue-500" />
         Informations TPE
       </h3>
-      <div className="grid grid-cols-2 gap-4 ">
-  {/* Marque */}
-<Select
-  value={interventionData.tpeBrand}
-  onValueChange={(value) => handleInterventionDataChange("tpeBrand", value)}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez une marque" />
-  </SelectTrigger>
-  <SelectContent>
-    {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
-      <SelectItem key={brand} value={brand}>
-        {brand}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Marque */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Marque :</label>
+          <Select
+            value={interventionData.tpeBrand}
+            onValueChange={handleInterventionBrandChange}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez une marque" />
+            </SelectTrigger>
+            <SelectContent>
+              {tpes.map((brand: any) => (
+                <SelectItem key={brand.manufacturer_id} value={brand.manufacturer}>
+                  {brand.manufacturer}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.tpeBrand && <p className="text-red-500 text-xs mt-1">{errors.tpeBrand}</p>}
+        </div>
 
-{/* Modèle */}
-<Select
-  value={interventionData.tpeModel}
-  onValueChange={(value) => handleInterventionDataChange("tpeModel", value)}
-  disabled={!interventionData.tpeBrand}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez un modèle" />
-  </SelectTrigger>
-  <SelectContent>
-    {tpes
-      .filter((t) => t.manufacturer === interventionData.tpeBrand)
-      .map((t) => (
-        <SelectItem key={t.model} value={t.model}>
-          {t.model}
-        </SelectItem>
-      ))}
-  </SelectContent>
-</Select>
+        {/* Modèle */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Modèle :</label>
+          <Select
+            value={interventionData.tpeModel}
+            onValueChange={handleInterventionModelChange}
+            disabled={!selectedBrand || availableModels.length === 0}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez un modèle" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableModels.map((model: any) => (
+                <SelectItem key={model.id} value={model.model}>
+                  {model.model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.tpeModel && <p className="text-red-500 text-xs mt-1">{errors.tpeModel}</p>}
+        </div>
 
-{/* Numéro de série */}
-<Select
-  value={interventionData.tpeSn}
-  onValueChange={(value) => handleInterventionDataChange("tpeSn", value)}
-  disabled={!interventionData.tpeModel}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez un SN" />
-  </SelectTrigger>
-  <SelectContent>
-    {tpes
-      .filter(
-        (t) =>
-          t.manufacturer === interventionData.tpeBrand &&
-          t.model === interventionData.tpeModel
-      )
-      .map((t) => (
-        <SelectItem key={t.serialNumber} value={t.serialNumber}>
-          {t.serialNumber}
-        </SelectItem>
-      ))}
-  </SelectContent>
-</Select>
-</div>
+        {/* Numéro de série - Manual Input */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Numéro de série :</label>
+          <Input
+            type="text"
+            placeholder="Entrez le numéro de série"
+            value={interventionData.tpeSn}
+            onChange={(e) => handleInterventionDataChange('tpeSn', e.target.value)}
+            className="w-full"
+          />
+          {errors.tpeSn && <p className="text-red-500 text-xs mt-1">{errors.tpeSn}</p>}
+        </div>
+      </div>
 
         
        
@@ -1013,6 +1125,70 @@ const handleSubmit = async () => {
           {activeTab === 'consumable' && (
   <div className="space-y-6">
 
+    {/* TPE Information Section for Consumable */}
+    <div className="bg-white p-4 rounded-lg border shadow-sm">
+      <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-800">
+        <FaCreditCard className="text-blue-500" />
+        Informations TPE
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Marque */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Marque :</label>
+          <Select
+            value={consumableData.tpeBrand}
+            onValueChange={handleConsumableBrandChange}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez une marque" />
+            </SelectTrigger>
+            <SelectContent>
+              {tpes.map((brand: any) => (
+                <SelectItem key={brand.manufacturer_id} value={brand.manufacturer}>
+                  {brand.manufacturer}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.consumableBrand && <p className="text-red-500 text-xs mt-1">{errors.consumableBrand}</p>}
+        </div>
+
+        {/* Modèle */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Modèle :</label>
+          <Select
+            value={consumableData.tpeModel}
+            onValueChange={handleConsumableModelChange}
+            disabled={!selectedConsumableBrand || availableConsumableModels.length === 0}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez un modèle" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableConsumableModels.map((model: any) => (
+                <SelectItem key={model.id} value={model.model}>
+                  {model.model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.consumableModel && <p className="text-red-500 text-xs mt-1">{errors.consumableModel}</p>}
+        </div>
+
+        {/* Numéro de série - Manual Input */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Numéro de série :</label>
+          <Input
+            type="text"
+            placeholder="Entrez le numéro de série"
+            value={consumableData.tpeSn}
+            onChange={(e) => setConsumableData(prev => ({ ...prev, tpeSn: e.target.value }))}
+            className="w-full"
+          />
+          {errors.consumableSn && <p className="text-red-500 text-xs mt-1">{errors.consumableSn}</p>}
+        </div>
+      </div>
+    </div>
 
   {/* Consumable Items Section */}
   <div className="bg-white p-4 rounded-lg border shadow-sm">
@@ -1060,12 +1236,11 @@ const handleSubmit = async () => {
                       <SelectValue placeholder="Sélectionnez le type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="TONER">Toner</SelectItem>
-                      <SelectItem value="PAPIER">Papier</SelectItem>
-                      <SelectItem value="RUBAN">Ruban</SelectItem>
-                      <SelectItem value="CARTOUCHE">Cartouche</SelectItem>
-                      <SelectItem value="KIT_DE_NETTOYAGE">Kit de nettoyage</SelectItem>
-                      <SelectItem value="AUTRE">Autre</SelectItem>
+                      {availableConsumableItems.map((consumable: any) => (
+                        <SelectItem key={consumable.id} value={consumable.type}>
+                          {consumable.type} (Stock: {consumable.quantity})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {errors[`item-${index}-type`] && (
@@ -1090,7 +1265,7 @@ const handleSubmit = async () => {
                       min="1"
                       placeholder="0"
                       value={item.quantity}
-                      onChange={(e) => handleConsumableItemChange(index, 'quantity', e.target.value)}
+                      onChange={(e) => handleConsumableItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
                       className="w-full text-center"
                     />
                     <Button
@@ -1145,14 +1320,14 @@ const handleSubmit = async () => {
           <div>
             <p className="text-sm font-medium text-blue-700">Total des articles :</p>
             <p className="text-lg font-bold text-blue-900">
-              {consumableData.items.reduce((total, item) => total + parseInt(item.quantity || '0'), 0)}
+              {consumableData.items.reduce((total, item) => total + (item.quantity || 0), 0)}
             </p>
           </div>
           <div>
             <p className="text-sm font-medium text-blue-700">Types demandés :</p>
             <p className="text-sm text-blue-900">
               {Array.from(new Set(consumableData.items.map(item => 
-                item.type === 'other' ? item.customType : item.type
+                item.type === 'other' ? (item.customType || 'Autre') : item.type
               ))).join(', ')}
             </p>
           </div>

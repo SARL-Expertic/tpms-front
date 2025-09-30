@@ -6,10 +6,10 @@ export const ENDPOINTS = {
   TICKETS: "/api/bank-employee/ticket",
   NETWORK_CHECK: "/api/bank-employee/ticket/network-check",
   INTERVENTION: "/api/bank-employee/ticket/intervention",
-  TPE: "/api/bank-employee/tpe",
+  TPE: "api/bank-employee/terminal-type",
   DEBLOCKING: "/api/bank-employee/ticket/deblocking-order",
 
-NETWORK_CHECKACCOUNT_MANAGER: "/api/account-manager/ticket/network-check",
+  NETWORK_CHECKACCOUNT_MANAGER: "/api/account-manager/ticket/network-check",
   INTERVENTIONACCOUNT_MANAGER: "/api/account-manager/ticket/intervention",
   DEBLOCKINGACCOUNT_MANAGER: "/api/account-manager/ticket/deblocking-order",
   CONSUMABLEACCOUNT_MANAGER: "/api/account-manager/ticket/consumable",
