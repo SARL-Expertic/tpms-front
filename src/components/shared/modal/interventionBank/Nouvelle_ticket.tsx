@@ -66,6 +66,7 @@ type UnblockingData = {
   requiredAction: string;
   terminal_types: {
     terminal_type_id: number;
+    quantity: number;
   }[];
 }
 
@@ -74,6 +75,7 @@ type InterventionData = {
   problemType: string;
   tpeBrand: string;
   terminal_type_id: number | null;
+  serialNumber?: string; // Optional serial number
 }
 
 type ConsumableData = {
@@ -228,7 +230,7 @@ const handleSelect = (id: number | string) => {
   const [unblockingData, setUnblockingData] = useState({
     notes: "",
     blockedReason: "",
-    terminal_types: [] as { terminal_type_id: number }[],   // changed from tpes to terminal_types
+    terminal_types: [] as { terminal_type_id: number; quantity: number }[],   // changed from tpes to terminal_types
     selectedBrand: "",
     selectedModel: "",
   });
@@ -238,7 +240,8 @@ const handleSelect = (id: number | string) => {
           problemCategory: '',
           problemType: '',
           tpeBrand: '',
-          terminal_type_id: null
+          terminal_type_id: null,
+          serialNumber: '' // Optional serial number
 });
 
 const [consumableData, setConsumableData] = useState<ConsumableData>({
@@ -250,6 +253,7 @@ const [consumableTerminalData, setConsumableTerminalData] = useState({
   selectedBrand: '',
   selectedModel: '',
   terminal_type_id: null as number | null,
+  serialNumber: '', // Optional serial number
 });
 
 const handleAddConsumable = () => {
@@ -444,10 +448,7 @@ const validateForm = (): boolean => {
           }
         });
       }
-      // Add terminal validation for consumable
-      if (!consumableTerminalData.terminal_type_id) {
-        newErrors.consumableTerminal = "Veuillez sélectionner un TPE.";
-      }
+      // Remove terminal validation since it's auto-selected
       break;
   }
   
@@ -488,7 +489,8 @@ const resetForm = () => {
     problemCategory: '',
     problemType: '',
     tpeBrand: '',
-    terminal_type_id: null
+    terminal_type_id: null,
+    serialNumber: ''
   })
   setConsumableData({
     items: []
@@ -496,7 +498,8 @@ const resetForm = () => {
   setConsumableTerminalData({
     selectedBrand: '',
     selectedModel: '',
-    terminal_type_id: null
+    terminal_type_id: null,
+    serialNumber: ''
   })
   setPhoto(null)
   setPreview(null)
@@ -532,7 +535,8 @@ const handleSubmit = async () => {
         await CreateinterventionAccountManager({
           ...basePayload,
           terminal_type_id: interventionData.terminal_type_id!,
-          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
+          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`,
+          tpe_seriel_number: interventionData.serialNumber || undefined
         });
         break;
         
@@ -553,6 +557,7 @@ const handleSubmit = async () => {
             quantity: item.quantity
           })),
           terminal_type_id: consumableTerminalData.terminal_type_id,
+          tpe_seriel_number: consumableTerminalData.serialNumber || undefined
         });
         break;
     }
@@ -1016,7 +1021,7 @@ const handleSubmit = async () => {
 
       setUnblockingData((prev) => ({
         ...prev,
-        terminal_types: [...prev.terminal_types, { terminal_type_id: selected.id }], // ✅ real ID
+        terminal_types: [...prev.terminal_types, { terminal_type_id: selected.id, quantity: 1 }], // ✅ real ID with default quantity
       }));
     }}
     disabled={!unblockingData.selectedModel}
@@ -1052,9 +1057,29 @@ const handleSubmit = async () => {
             key={index}
             className="flex justify-between items-center p-3 border rounded-lg"
           >
-            <span>
-              {fullTpe?.manufacturer} – {fullTpe?.model}
-            </span>
+            <div className="flex items-center gap-4">
+              <span>
+                {fullTpe?.manufacturer} – {fullTpe?.model}
+              </span>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Quantité:</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={terminalType.quantity}
+                  onChange={(e) => {
+                    const newQuantity = parseInt(e.target.value) || 1;
+                    setUnblockingData((prev) => ({
+                      ...prev,
+                      terminal_types: prev.terminal_types.map((item, i) => 
+                        i === index ? { ...item, quantity: newQuantity } : item
+                      ),
+                    }));
+                  }}
+                  className="w-20 text-center"
+                />
+              </div>
+            </div>
             <button
               type="button"
               onClick={() =>
@@ -1166,56 +1191,79 @@ const handleSubmit = async () => {
         <FaCreditCard className="text-blue-500" />
         Informations TPE
       </h3>
-      <div className="grid grid-cols-2 gap-4 ">
-  {/* Marque */}
-<Select
-  value={interventionData.tpeBrand}
-  onValueChange={(value) => {
-    setInterventionData(prev => ({
-      ...prev,
-      tpeBrand: value,
-      terminal_type_id: null // Reset terminal_type_id when brand changes
-    }));
-  }}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez une marque" />
-  </SelectTrigger>
-  <SelectContent>
-    {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
-      <SelectItem key={brand} value={brand}>
-        {brand}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Marque */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Marque :</label>
+          <Select
+            value={interventionData.tpeBrand}
+            onValueChange={(value) => {
+              setInterventionData(prev => ({
+                ...prev,
+                tpeBrand: value,
+                terminal_type_id: null // Reset terminal_type_id when brand changes
+              }));
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez une marque" />
+            </SelectTrigger>
+            <SelectContent>
+              {[...new Set(tpes.map((t) => t.manufacturer))].map((brand) => (
+                <SelectItem key={brand} value={brand}>
+                  {brand}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-{/* Modèle */}
-<Select
-  value={interventionData.terminal_type_id?.toString() || ""}
-  onValueChange={(value) => {
-    const selectedId = parseInt(value);
-    setInterventionData(prev => ({
-      ...prev,
-      terminal_type_id: selectedId
-    }));
-  }}
-  disabled={!interventionData.tpeBrand}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Sélectionnez un modèle" />
-  </SelectTrigger>
-  <SelectContent>
-    {tpes
-      .filter((t) => t.manufacturer === interventionData.tpeBrand)
-      .map((t) => (
-        <SelectItem key={t.id} value={t.id.toString()}>
-          {t.model}
-        </SelectItem>
-      ))}  
-  </SelectContent>
-</Select>
-</div>
+        {/* Modèle */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">Modèle :</label>
+          <Select
+            value={interventionData.terminal_type_id?.toString() || ""}
+            onValueChange={(value) => {
+              const selectedId = parseInt(value);
+              setInterventionData(prev => ({
+                ...prev,
+                terminal_type_id: selectedId
+              }));
+            }}
+            disabled={!interventionData.tpeBrand}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez un modèle" />
+            </SelectTrigger>
+            <SelectContent>
+              {tpes
+                .filter((t) => t.manufacturer === interventionData.tpeBrand)
+                .map((t) => (
+                  <SelectItem key={t.id} value={t.id.toString()}>
+                    {t.model}
+                  </SelectItem>
+                ))}  
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Numéro de série (optionnel) */}
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-2">N° de série (optionnel) :</label>
+          <Input
+            type="text"
+            placeholder="ex: 123456789"
+            value={interventionData.serialNumber || ''}
+            onChange={(e) => {
+              setInterventionData(prev => ({
+                ...prev,
+                serialNumber: e.target.value
+              }));
+            }}
+            className="w-full"
+          />
+        </div>
+      </div>
 
         
        
@@ -1233,7 +1281,7 @@ const handleSubmit = async () => {
       <FaCreditCard className="text-blue-500" />
       Informations TPE
     </h3>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* Marque */}
       <div className="flex flex-col">
         <label className="text-sm font-medium mb-2">Marque :</label>
@@ -1272,6 +1320,19 @@ const handleSubmit = async () => {
               selectedModel: value,
               terminal_type_id: null
             }));
+            
+            // Auto-select the first TPE model when model is selected
+            const firstTpe = tpes.find(
+              (t) =>
+                t.manufacturer === consumableTerminalData.selectedBrand &&
+                t.model === value
+            );
+            if (firstTpe) {
+              setConsumableTerminalData(prev => ({
+                ...prev,
+                terminal_type_id: firstTpe.id
+              }));
+            }
           }}
           disabled={!consumableTerminalData.selectedBrand}
         >
@@ -1292,37 +1353,21 @@ const handleSubmit = async () => {
         </Select>
       </div>
 
-      {/* TPE Selection */}
+      {/* Numéro de série (optionnel) */}
       <div className="flex flex-col">
-        <label className="text-sm font-medium mb-2">Sélectionner TPE :</label>
-        <Select
-          value={consumableTerminalData.terminal_type_id?.toString() || ""}
-          onValueChange={(value) => {
-            const selectedId = parseInt(value);
+        <label className="text-sm font-medium mb-2">N° de série (optionnel) :</label>
+        <Input
+          type="text"
+          placeholder="ex: 123456789"
+          value={consumableTerminalData.serialNumber || ''}
+          onChange={(e) => {
             setConsumableTerminalData(prev => ({
               ...prev,
-              terminal_type_id: selectedId
+              serialNumber: e.target.value
             }));
           }}
-          disabled={!consumableTerminalData.selectedModel}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Sélectionnez un TPE" />
-          </SelectTrigger>
-          <SelectContent>
-            {tpes
-              .filter(
-                (t) =>
-                  t.manufacturer === consumableTerminalData.selectedBrand &&
-                  t.model === consumableTerminalData.selectedModel
-              )
-              .map((t) => (
-                <SelectItem key={t.id} value={t.id.toString()}>
-                  {t.manufacturer} - {t.model}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+          className="w-full"
+        />
       </div>
     </div>
     {errors.consumableTerminal && (

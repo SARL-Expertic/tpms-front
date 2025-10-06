@@ -1,3 +1,4 @@
+import { strict } from "assert";
 import api from "./axios";
 import { ENDPOINTS } from "./endpoints";
 
@@ -54,6 +55,7 @@ export const createNetworkCheckTicket = (
 export const createInterventionTicket = (
   data: NewOrExistingClient & {
     terminal_type_id: number;
+    tpe_seriel_number?: string;
     problem_description: string;
   }
 ) => api.post(ENDPOINTS.INTERVENTION, data);
@@ -62,7 +64,7 @@ export const createDeblockingTicket = (data: {
   bank_id?: number | null;
   notes: string;
   deblockingType: string;
-  tpes: { id: number }[];
+  terminal_types: { terminal_type_id: number; quantity: number }[];
 }) => api.post(ENDPOINTS.DEBLOCKING, data);
 
 
@@ -74,6 +76,7 @@ export const createConsumableTicket = (
   data: NewOrExistingClient & {
     consumables: { type: string; quantity: number }[];
     terminal_type_id?: number | null;
+    tpe_seriel_number?: string;
   }
 ) => api.post(ENDPOINTS.CONSUMABLE, data);
 
@@ -203,6 +206,7 @@ export const closeticket = (ticketId: number) =>
 export const CreateinterventionAccountManager = (
   data: NewOrExistingClient & {
     terminal_type_id: number;
+    tpe_seriel_number?: string;
     problem_description: string;
   }
 ) => api.post(ENDPOINTS.INTERVENTIONACCOUNT_MANAGER, data);
@@ -211,6 +215,7 @@ export const CreateconsumableAccountManager = (
   data: NewOrExistingClient & {
     consumables: { type: string; quantity: number }[];
     terminal_type_id?: number | null;
+    tpe_seriel_number?: string;
   }
 ) => api.post(ENDPOINTS.CONSUMABLEACCOUNT_MANAGER, data);
 
@@ -218,7 +223,7 @@ export const CreateDeblockingAccountManager = (data: {
   bank_id?: number | null;
   notes: string;
   deblockingType: string;
-  terminal_types: { terminal_type_id: number }[];
+  terminal_types: { terminal_type_id: number; quantity: number }[];
 }) => api.post(ENDPOINTS.DEBLOCKINGACCOUNT_MANAGER, data);
 
 export const CreateNetworkCheckAccountManager = (
@@ -239,3 +244,5 @@ export const Updateconsoambleticket = (
     status?: string;
   }
 ) => api.put(`${ENDPOINTS.UPDATECONSUMABLETICKET}/${ticket_id}`, data);
+
+export const fetchConsumablesBankEmployee = () => api.get(ENDPOINTS.CONSUMABLEITEMS_Bankemployee);

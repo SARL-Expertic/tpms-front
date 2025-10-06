@@ -102,9 +102,7 @@ export default function ConsumablesTable() {
   }
 
   return (
-    <div className="space-y-6 mt-6 ">
-      <Card>
-        <CardHeader>
+    <div className=" space-y-6 mt-6 ">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
@@ -138,9 +136,7 @@ export default function ConsumablesTable() {
               </Button>
             </div>
           </div>
-        </CardHeader>
 
-        <CardContent>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="bg-blue-50 dark:bg-blue-900/20">
@@ -245,8 +241,6 @@ export default function ConsumablesTable() {
               filters={[]}
             />
           )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

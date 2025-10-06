@@ -292,9 +292,7 @@ export default function BanksTable() {
   }
 
   return (
-    <div className="space-y-6 mt-6">
-      <Card>
-        <CardHeader>
+    <div className=" space-y-6 mt-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
               <CardTitle className="flex items-center gap-3 text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
@@ -346,9 +344,7 @@ export default function BanksTable() {
               </Button>
             </div>
           </div>
-        </CardHeader>
 
-        <CardContent>
           {/* Statistics */}
           <BankStats />
 
@@ -436,8 +432,6 @@ export default function BanksTable() {
           ) : (
             <DataTable recherche={false} columns={BankColumns} data={filteredBanks} filters={[]} />
           )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

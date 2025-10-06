@@ -43,7 +43,8 @@ export default function TickitsTable() {
     return map[STATUS] || STATUS;
 };
 
-  useEffect(() => {
+  const loadTickets = () => {
+    setLoading(true)
     fetchTickets()
       .then((res) => {
     const transformed = res.data.map((ticket: any) => ({
@@ -55,9 +56,12 @@ export default function TickitsTable() {
           brand: ticket?.tpe?.manufacturer ?? '-',
           
           tpe: {
+            tpetype: ticket?.tpe?.terminalType?.id ?? '-',
             serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
-            model: ticket?.tpe?.model ?? '-',
-            brand: ticket?.tpe?.manufacturer ?? '-',
+            brand: ticket?.tpe?.terminalType?.manufacturer?.name ?? '-',
+            id_brand: ticket?.tpe?.terminalType?.manufacturer?.id ?? '',
+            model: ticket?.tpe?.terminalType?.model?.name ?? '-',
+            id_model: ticket?.tpe?.terminalType?.model?.id ?? '',          
           },
           deblockingOrder: ticket?.deblockingOrder ? {
             id: ticket?.deblockingOrder?.id ?? '',
@@ -105,13 +109,17 @@ export default function TickitsTable() {
         setError(err)
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    loadTickets()
   }, [])
 
   return (
     <div className="mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Tableau des demandes</h1>
-    <CreateTicketButton />
+    <CreateTicketButton onCreate={loadTickets} />
       </div>
       {loading ? (
           <CardSkeleton />

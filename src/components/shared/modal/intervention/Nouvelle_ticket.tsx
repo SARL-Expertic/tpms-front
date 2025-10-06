@@ -12,7 +12,7 @@ import { FaPlus, FaInfoCircle } from 'react-icons/fa';
 import { Button } from "@/components/ui/button"
 import { FaExclamationTriangle, FaCreditCard, FaClipboardList } from 'react-icons/fa';
 import { FaBox, FaClipboardCheck,  FaMinus  } from 'react-icons/fa';
-import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchClients, fetchTPE, fetchConsumablesItems } from "@/app/api/tickets"
+import { clientfetch, createConsumableTicket, createDeblockingTicket, createInterventionTicket, createNetworkCheckTicket, fetchClients, fetchTPE, fetchConsumablesItems , fetchConsumablesBankEmployee } from "@/app/api/tickets"
 import { CheckboxItem } from "@radix-ui/react-dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { set } from "date-fns"
@@ -46,10 +46,9 @@ type UnblockingData = {
   previousAttempts: string;
   requiredAction: string;
   notes: string;
-  terminal_types: { terminal_type_id: number }[];
+  terminal_types: { terminal_type_id: number; quantity: number }[];
   selectedBrand?: string;
   selectedModel?: string;
-  selectedSerial?: string;
 }
 
 type InterventionData = {
@@ -159,10 +158,9 @@ const handleSelect = (id: number | string) => {
     blockedReason: "",
     previousAttempts: "",
     requiredAction: "",
-    terminal_types: [] as { terminal_type_id: number }[],
+    terminal_types: [] as { terminal_type_id: number; quantity: number }[],
     selectedBrand: "",
-    selectedModel: "",
-    selectedSerial: ""
+    selectedModel: ""
   });
   
 
@@ -251,7 +249,7 @@ const handleQuantityChange = (index: number, change: number) => {
       });
 
     // Fetch consumable items
-    fetchConsumablesItems()
+    fetchConsumablesBankEmployee()
       .then((res) => {
         setAvailableConsumableItems(res.data || []);
       })
@@ -384,8 +382,7 @@ const resetForm = () => {
     requiredAction: '',
     terminal_types: [],
     selectedBrand: '',
-    selectedModel: '',
-    selectedSerial: ''
+    selectedModel: ''
   })
   setInterventionData({
     problemCategory: '',
@@ -440,7 +437,8 @@ const handleSubmit = async () => {
         await createInterventionTicket({
           ...basePayload,
           terminal_type_id: interventionData.terminal_type_id || 0,
-          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`
+          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`,
+          tpe_seriel_number: interventionData.tpeSn || undefined
         });
         break;
         
@@ -460,12 +458,19 @@ const handleSubmit = async () => {
             type: item.type === 'other' ? (item.customType || 'Autre') : item.type,
             quantity: item.quantity
           })),
+          tpe_seriel_number: consumableData.tpeSn || undefined
         });
         break;
     }
     
     resetForm();
     setSuccessMessage("✅ Ticket créé avec succès !");
+    
+    // Call the onCreate callback to refresh the table
+    if (onCreate) {
+      onCreate();
+    }
+    
     return false;
   } catch (error) {
     console.error(error);
@@ -844,7 +849,7 @@ const handleUnblockingModelChange = (modelName: string) => {
     <span className="text-sm text-gray-500">Vous pouvez ajouter des informations TPE si nécessaire</span>
   </div>
 
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     {/* Marque */}
     <div className="flex flex-col">
       <label className="text-sm font-medium mb-2">Marque :</label>
@@ -885,18 +890,6 @@ const handleUnblockingModelChange = (modelName: string) => {
         </SelectContent>
       </Select>
     </div>
-
-    {/* Numéro de série - Manual Input */}
-    <div className="flex flex-col">
-      <label className="text-sm font-medium mb-2">Numéro de série :</label>
-      <Input
-        type="text"
-        placeholder="Entrez le numéro de série (optionnel)"
-        value={unblockingData.selectedSerial || ''}
-        onChange={(e) => setUnblockingData(prev => ({ ...prev, selectedSerial: e.target.value }))}
-        className="w-full"
-      />
-    </div>
   </div>
 
   {/* Add TPE Button */}
@@ -909,10 +902,9 @@ const handleUnblockingModelChange = (modelName: string) => {
           if (selectedModel) {
             setUnblockingData(prev => ({
               ...prev,
-              terminal_types: [...prev.terminal_types, { terminal_type_id: selectedModel.id }],
+              terminal_types: [...prev.terminal_types, { terminal_type_id: selectedModel.id, quantity: 1 }],
               selectedBrand: '',
-              selectedModel: '',
-              selectedSerial: ''
+              selectedModel: ''
             }));
             setSelectedUnblockingBrand(null);
             setAvailableUnblockingModels([]);
@@ -942,9 +934,29 @@ const handleUnblockingModelChange = (modelName: string) => {
             key={index}
             className="flex justify-between items-center p-3 border rounded-lg bg-gray-50"
           >
-            <span>
-              {brand?.manufacturer} – {fullModel?.model} (ID: {terminalType.terminal_type_id})
-            </span>
+            <div className="flex items-center gap-4">
+              <span>
+                {brand?.manufacturer} – {fullModel?.model} (ID: {terminalType.terminal_type_id})
+              </span>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Quantité:</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={terminalType.quantity}
+                  onChange={(e) => {
+                    const newQuantity = parseInt(e.target.value) || 1;
+                    setUnblockingData((prev) => ({
+                      ...prev,
+                      terminal_types: prev.terminal_types.map((item, i) => 
+                        i === index ? { ...item, quantity: newQuantity } : item
+                      ),
+                    }));
+                  }}
+                  className="w-20 text-center"
+                />
+              </div>
+            </div>
             <button
               type="button"
               onClick={() =>
@@ -1188,6 +1200,31 @@ const handleUnblockingModelChange = (modelName: string) => {
           {errors.consumableSn && <p className="text-red-500 text-xs mt-1">{errors.consumableSn}</p>}
         </div>
       </div>
+
+      {/* TPE Details Summary */}
+      {consumableData.tpeBrand && consumableData.tpeModel && (
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+            <FaInfoCircle className="text-blue-500" />
+            Détails du TPE sélectionné
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-blue-700">Marque:</span>
+              <p className="text-blue-900">{consumableData.tpeBrand}</p>
+            </div>
+            <div>
+              <span className="font-medium text-blue-700">Modèle:</span>
+              <p className="text-blue-900">{consumableData.tpeModel}</p>
+            </div>
+            <div>
+              <span className="font-medium text-blue-700">N° de série:</span>
+              <p className="text-blue-900">{consumableData.tpeSn || 'Non renseigné'}</p>
+            </div>
+   
+          </div>
+        </div>
+      )}
     </div>
 
   {/* Consumable Items Section */}
@@ -1238,7 +1275,7 @@ const handleUnblockingModelChange = (modelName: string) => {
                     <SelectContent>
                       {availableConsumableItems.map((consumable: any) => (
                         <SelectItem key={consumable.id} value={consumable.type}>
-                          {consumable.type} (Stock: {consumable.quantity})
+                          {consumable.type}
                         </SelectItem>
                       ))}
                     </SelectContent>
