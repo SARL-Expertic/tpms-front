@@ -275,3 +275,4 @@ export const fetchConsumablesBankEmployee = () => api.get(ENDPOINTS.CONSUMABLEIT
 
 export const  USERFETCH  = () => api.get(ENDPOINTS.USER_ME)
 export const  updateUSER  = (data: { firstName?: string; lastName?: string; phoneNumber?: string; password?: string; }) => api.put(ENDPOINTS.USER, data)
+export const  updateUSERAccountManager  = (data: { firstName?: string; lastName?: string; phoneNumber?: string; password?: string; }) => api.put(ENDPOINTS.USERAccountManager, data)

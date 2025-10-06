@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { USERFETCH, updateUSER } from '@/app/api/tickets';
+import { USERFETCH, updateUSER, updateUSERAccountManager } from '@/app/api/tickets';
+import { useAuth } from '@/providers/AuthContext';
 
 type UserData = {
   id: number;
@@ -27,7 +28,17 @@ type UserResponse = {
 };
 
 export default function SettingsPage() {
+  const { user } = useAuth(); // ✅ get user from context
+  const role_current = user?.role || 'Client'; // Default to 'client' if user or role is undefined
+  
   const [userData, setUserData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: ''
+  });
+
+  const [originalUserData, setOriginalUserData] = useState({
     firstName: '',
     lastName: '',
     email: '',
@@ -41,7 +52,6 @@ export default function SettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string>('');
 
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
@@ -54,12 +64,15 @@ export default function SettingsPage() {
         const response = await USERFETCH();
         const userData: UserResponse = response.data;
         
-        setUserData({
+        const userDataObj = {
           firstName: userData.user.first_name,
           lastName: userData.user.last_name,
           email: userData.user.email,
           phoneNumber: '' // Phone number not in user object, will be handled separately
-        });
+        };
+        
+        setUserData(userDataObj);
+        setOriginalUserData(userDataObj);
         
         setBankInfo(userData.bank);
       } catch (err) {
@@ -73,6 +86,13 @@ export default function SettingsPage() {
     fetchUserData();
   }, []);
 
+  // Helper function to determine which update function to use based on role
+  const getUpdateFunction = () => {
+    return (role_current === 'admin' || role_current === 'ACCOUNT_MANAGER' || role_current === 'manager') 
+      ? updateUSERAccountManager 
+      : updateUSER;
+  };
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -81,15 +101,31 @@ export default function SettingsPage() {
       setError('');
       setSuccessMessage('');
       
-      const updatePayload = {
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        phoneNumber: userData.phoneNumber,
-        password: '' // Empty password means no password change
-      };
+      // Only send fields that have changed
+      const updatePayload: { firstName?: string; lastName?: string; phoneNumber?: string; password?: string } = {};
       
-      await updateUSER(updatePayload);
+      if (userData.firstName !== originalUserData.firstName) {
+        updatePayload.firstName = userData.firstName;
+      }
+      if (userData.lastName !== originalUserData.lastName) {
+        updatePayload.lastName = userData.lastName;
+      }
+      if (userData.phoneNumber !== originalUserData.phoneNumber) {
+        updatePayload.phoneNumber = userData.phoneNumber;
+      }
+      
+      // Only send update if there are actual changes
+      if (Object.keys(updatePayload).length === 0) {
+        setError('Aucune modification détectée');
+        return;
+      }
+      
+      const updateFunction = getUpdateFunction();
+      await updateFunction(updatePayload);
       setSuccessMessage('Profil mis à jour avec succès!');
+      
+      // Update original data to reflect the changes
+      setOriginalUserData(userData);
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -119,16 +155,15 @@ export default function SettingsPage() {
       setError('');
       setSuccessMessage('');
       
+      // Only send password field for password changes
       const updatePayload = {
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        phoneNumber: userData.phoneNumber,
         password: passwordData.newPassword
       };
       
-      await updateUSER(updatePayload);
+      const updateFunction = getUpdateFunction();
+      await updateFunction(updatePayload);
       setSuccessMessage('Mot de passe changé avec succès!');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordData({ newPassword: '', confirmPassword: '' });
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -253,19 +288,6 @@ export default function SettingsPage() {
             <form onSubmit={handlePasswordChange}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
-                    Mot de passe actuel
-                  </label>
-                  <input
-                    type="password"
-                    id="currentPassword"
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                    disabled={isUpdating}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-                <div>
                   <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
                     Nouveau mot de passe
                   </label>
@@ -292,6 +314,7 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
+
               <div className="mt-6">
                 <button
                   type="submit"
@@ -305,51 +328,53 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Bank Information Section */}
-        <div className="bg-white col-span-2 shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Informations De la Banque</h2>
-          </div>
-          <div className="p-6">
-            {bankInfo ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Nom de la banque</h3>
-                    <p className="mt-1 text-sm text-gray-900">{bankInfo.name}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Code de la banque</h3>
-                    <p className="mt-1 text-sm text-gray-900">{bankInfo.code}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Numéro de téléphone</h3>
-                    <p className="mt-1 text-sm text-gray-900">{bankInfo.phoneNumber}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Statut</h3>
-                    <p className="mt-1 text-sm text-gray-900">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        bankInfo.status === 'ACTIVE' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {bankInfo.status}
-                      </span>
-                    </p>
+        {/* Bank Information Section - Only for Client role */}
+        {role_current === 'BANK_USER' && (
+          <div className="bg-white col-span-2 shadow rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">Informations De la Banque</h2>
+            </div>
+            <div className="p-6">
+              {bankInfo ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Nom de la banque</h3>
+                      <p className="mt-1 text-sm text-gray-900">{bankInfo.name}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Code de la banque</h3>
+                      <p className="mt-1 text-sm text-gray-900">{bankInfo.code}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Numéro de téléphone</h3>
+                      <p className="mt-1 text-sm text-gray-900">{bankInfo.phoneNumber}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Statut</h3>
+                      <p className="mt-1 text-sm text-gray-900">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          bankInfo.status === 'ACTIVE' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {bankInfo.status}
+                        </span>
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-500">Aucune information bancaire enregistrée</p>
-                <button className="mt-2 text-sm text-blue-600 hover:text-blue-500">
-                  Ajouter une information bancaire
-                </button>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">Aucune information bancaire enregistrée</p>
+                  <button className="mt-2 text-sm text-blue-600 hover:text-blue-500">
+                    Ajouter une information bancaire
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
