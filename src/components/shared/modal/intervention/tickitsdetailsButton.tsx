@@ -176,40 +176,13 @@ export function TicketDetailsButton({ ticket }: Props) {
               )}
             </>
           )}
-            {type ==='DÉBLOCAGE' && 
-            <div className="grid grid-cols-2 gap-4 text-sm ml-12">
-              {deblockingOrder?.items.map((item) => (
-                <div key={item.id} className="mb-2 p-2 border rounded">
-                  <div>
-                    <span className="text-muted-foreground">Marque:</span> {item.terminalType.manufacturer.name}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Modèle:</span> {item.terminalType.model.name}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Status:</span>{" "}
-                    <Badge className={`ml-2 text-xs ${
-                      item.status === 'PENDING' ? 'bg-yellow-500' :
-                      item.status === 'APPROVED' ? 'bg-green-500' :
-                      item.status === 'REJECTED' ? 'bg-red-500' : 'bg-gray-500'
-                    }`}>
-                      {item.status}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Date de demande:</span>{" "}
-                    {item.requestDate ? new Date(item.requestDate).toLocaleDateString('fr-FR', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    }) : 'N/A'}
-                  </div>
-                </div>
-              ))}
+            {type ==='DÉBLOCAGE' && tpe && (
+            <div className="grid gap-2 text-sm ml-12">
+              <div><span className="text-muted-foreground">SN:</span> {tpe.serialNumber}</div>
+              <div><span className="text-muted-foreground">Modèle:</span> {tpe.model}</div>
+              <div><span className="text-muted-foreground">Marque:</span> {tpe.brand}</div>
             </div>
-}
+            )}
           </div>
     }
     

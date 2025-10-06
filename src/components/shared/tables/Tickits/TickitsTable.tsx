@@ -52,21 +52,19 @@ export default function TickitsTable() {
           type: entofr_Type(ticket?.type ?? ''),
           status: entofr_status(ticket?.status ?? ''),
           note: ticket?.notes ?? '',
-          model: ticket?.tpe?.model ?? '-',
-          brand: ticket?.tpe?.manufacturer ?? '-',
+           model: ticket?.terminalType?.model?.name ?? '-',
+          brand: ticket?.terminalType?.manufacturer?.name ?? '-',
           
-          tpe: {
+         tpe: {
             tpetype: ticket?.tpe?.terminalType?.id ?? '-',
             serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
-            brand: ticket?.tpe?.terminalType?.manufacturer?.name ?? '-',
-            id_brand: ticket?.tpe?.terminalType?.manufacturer?.id ?? '',
-            model: ticket?.tpe?.terminalType?.model?.name ?? '-',
+            brand: ticket?.terminalType?.manufacturer?.name ?? '-',
+            id_brand: ticket?.terminalType?.manufacturer?.id ?? '',
+            model: ticket?.terminalType?.model?.name ?? '-',
             id_model: ticket?.tpe?.terminalType?.model?.id ?? '',          
           },
           deblockingOrder: ticket?.deblockingOrder ? {
             id: ticket?.deblockingOrder?.id ?? '',
-            type: ticket?.deblockingOrder?.type ?? '',
-            items: ticket?.deblockingOrder?.items ?? [],
           } : undefined,
           problemDescription: ticket?.problemDescription ?? 'N/A',
           intervention: ticket?.intervention ?{

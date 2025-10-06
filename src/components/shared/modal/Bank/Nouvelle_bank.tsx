@@ -87,6 +87,7 @@ export function CreateBankModal({ onCreate }: { onCreate: (bank: Bank) => void }
 
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newSub, setNewSub] = useState<SubAccount>({
     id: Date.now(),
     name: "",
@@ -198,10 +199,12 @@ const validateTPE = () => {
     setErrors({...errors, tpe: ""});
   };
 
-  const handleSubmit = () => {
-    if (!validateForm()) return false;
+  const handleSubmit = async () => {
+    if (!validateForm() || isSubmitting) return false;
 
-    // Prepare the payload with only changed fields
+    setIsSubmitting(true);
+
+    try {
     const payload: any = {};
     
     // Always include basic required fields for creation
@@ -320,12 +323,19 @@ const validateTPE = () => {
 
     // Only make API call if there are actual changes or it's a new bank
     if (!isEdit || Object.keys(payload).length > 0) {
-      createbank(payload);
+      await createbank(payload);
       onCreate(bank);
     }
     
     return true;
-  };
+  } catch (error) {
+    console.error('Error creating bank:', error);
+    setErrors({ general: 'Erreur lors de la création de la banque. Veuillez réessayer.' });
+    return false;
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const removeSubAccount = (id: number) => {
     setBank(prev => ({
@@ -365,10 +375,31 @@ const validateTPE = () => {
       title="Créer une nouvelle banque"
       description="Remplissez les informations pour ajouter une banque"
       cancelLabel="Annuler"
-      confirmLabel="Créer"
+      confirmLabel={isSubmitting ? "Création en cours..." : "Créer"}
       onConfirm={handleSubmit}
     >
-      <div className="space-y-6 p-1 max-h-[70vh] overflow-y-auto">
+      <div className="space-y-6 p-1 max-h-[70vh] overflow-y-auto relative">
+        {/* Loading Overlay */}
+        {isSubmitting && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+            <div className="text-center space-y-3">
+              <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+              <div className="text-lg font-semibold text-blue-700">Création de la banque en cours...</div>
+              <div className="text-sm text-gray-600">Veuillez patienter, ne fermez pas cette fenêtre</div>
+            </div>
+          </div>
+        )}
+        
+        {/* General Error Message */}
+        {errors.general && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+            <p className="text-red-700 text-sm flex items-center gap-1">
+              <AlertCircle className="h-4 w-4" />
+              {errors.general}
+            </p>
+          </div>
+        )}
+        
         <Tabs defaultValue="bank-info" className="w-full">
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="bank-info">Informations Banque</TabsTrigger>

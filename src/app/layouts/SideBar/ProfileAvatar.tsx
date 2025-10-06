@@ -88,8 +88,8 @@ export default function ProfileAvatar() {
       <DropdownMenuContent side="left" align="end" className="w-48 mt-2">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Profile</DropdownMenuItem>
-        <DropdownMenuItem>Settings</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/settings")}>Profile</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/settings")}  >Settings</DropdownMenuItem>
         <DropdownMenuItem
           onClick={handleLogout}
           className="text-red-500 font-bold hover:text-red-500"

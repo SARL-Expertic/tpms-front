@@ -134,7 +134,18 @@ export default function NewModelModal({ onSuccess }: Props) {
         confirmLabel={isLoading ? "Création..." : "Créer le modèle"}
         onConfirm={handleSubmit}
       >
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+          {/* Loading Overlay */}
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+              <div className="text-center space-y-3">
+                <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+                <div className="text-lg font-semibold text-blue-700">Création du modèle en cours...</div>
+                <div className="text-sm text-gray-600">Veuillez patienter, ne fermez pas cette fenêtre</div>
+              </div>
+            </div>
+          )}
+          
           {/* Show general error if any */}
           {errors.general && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">

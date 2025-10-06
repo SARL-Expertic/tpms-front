@@ -942,138 +942,58 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
               <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
                 <FaCreditCard className="text-red-600 dark:text-red-400" />
               </div>
-              Déblocage
+              TPE - Déblocage
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm ml-12">
-              {deblockingOrder?.items.map((item: any, index: number) => (
-                <div key={item.id} className="mb-2 p-2 border rounded">
+            {tpe && (
+              <div className="grid gap-2 text-sm ml-12">
+                <div>
+                  <span className="text-muted-foreground">SN:</span>
                   {isEditing ? (
-                    <>
-                      <div className="mb-2">
-                        <span className="text-muted-foreground">
-                          Marque:
-                        </span>
-                        <Input
-                          value={item.terminalType.manufacturer.name}
-                          onChange={(e) =>
-                            handleArrayChange(
-                              "deblockingOrder.items",
-                              index,
-                              "terminalType",
-                              {
-                                ...item.terminalType,
-                                manufacturer: {
-                                  ...item.terminalType.manufacturer,
-                                  name: e.target.value,
-                                },
-                              }
-                            )
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="mb-2">
-                        <span className="text-muted-foreground">
-                          Modèle:
-                        </span>
-                        <Input
-                          value={item.terminalType.model.name}
-                          onChange={(e) =>
-                            handleArrayChange(
-                              "deblockingOrder.items",
-                              index,
-                              "terminalType",
-                              {
-                                ...item.terminalType,
-                                model: {
-                                  ...item.terminalType.model,
-                                  name: e.target.value,
-                                },
-                              }
-                            )
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="mb-2">
-                        <span className="text-muted-foreground">
-                          Status:
-                        </span>
-                        <Input
-                          value={item.status}
-                          onChange={(e) =>
-                            handleArrayChange(
-                              "deblockingOrder.items",
-                              index,
-                              "status",
-                              e.target.value
-                            )
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">
-                          Date de demande:
-                        </span>
-                        <Input
-                          type="datetime-local"
-                          value={item.requestDate ? new Date(item.requestDate).toISOString().slice(0, 16) : ''}
-                          onChange={(e) =>
-                            handleArrayChange(
-                              "deblockingOrder.items",
-                              index,
-                              "requestDate",
-                              e.target.value
-                            )
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-                    </>
+                    <Input
+                      value={tpe.serialNumber}
+                      onChange={(e) =>
+                        handleNestedChange(
+                          "tpe",
+                          "serialNumber",
+                          e.target.value
+                        )
+                      }
+                      className="mt-1"
+                    />
                   ) : (
-                    <>
-                      <div>
-                        <span className="text-muted-foreground">
-                          Marque:
-                        </span>{" "}
-                        {item.terminalType.manufacturer.name}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">
-                          Modèle:
-                        </span>{" "}
-                        {item.terminalType.model.name}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">
-                          Status:
-                        </span>{" "}
-                        <Badge className={`ml-2 text-xs ${
-                          item.status === 'PENDING' ? 'bg-yellow-500' :
-                          item.status === 'APPROVED' ? 'bg-green-500' :
-                          item.status === 'REJECTED' ? 'bg-red-500' : 'bg-gray-500'
-                        }`}>
-                          {item.status}
-                        </Badge>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">
-                          Date de demande:
-                        </span>{" "}
-                        {item.requestDate ? new Date(item.requestDate).toLocaleDateString('fr-FR', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'N/A'}
-                      </div>
-                    </>
+                    ` ${tpe.serialNumber}`
                   )}
                 </div>
-              ))}
-            </div>
+                <div>
+                  <span className="text-muted-foreground">Modèle:</span>
+                  {isEditing ? (
+                    <Input
+                      value={tpe.model}
+                      onChange={(e) =>
+                        handleNestedChange("tpe", "model", e.target.value)
+                      }
+                      className="mt-1"
+                    />
+                  ) : (
+                    ` ${tpe.model}`
+                  )}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Marque:</span>
+                  {isEditing ? (
+                    <Input
+                      value={tpe.brand}
+                      onChange={(e) =>
+                        handleNestedChange("tpe", "brand", e.target.value)
+                      }
+                      className="mt-1"
+                    />
+                  ) : (
+                    ` ${tpe.brand}`
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

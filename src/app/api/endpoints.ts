@@ -16,7 +16,7 @@ export const ENDPOINTS = {
 
   CLIENTS: "/api/bank-employee/client",
   CONSUMABLE: "/api/bank-employee/ticket/consumable",
-  USER: "/auth/me",
+  USER: "/api/account-manager/user",
   TICKETS_MANAGER: "/api/account-manager/ticket",
   TPES_MANAGER: "/api/account-manager/tpe",
   CLIENTS_MANAGER: "/api/account-manager/client",
@@ -39,6 +39,6 @@ export const ENDPOINTS = {
   UPDATECONSUMABLETICKET: "/api/account-manager/ticket/consumable",
   UPDATEDEBLOCKINGTICKET: "/api/account-manager/ticket/deblocking-order",
 
-
+USER_ME: "/auth/me"
 
 };

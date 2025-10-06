@@ -45,8 +45,7 @@ export default function Sidebar() {
         <hr className="my-4 border-slate-200" />
 
         <div className="flex flex-col gap-2">
-          <SidebarItem  icon={FiSettings} label="Settings" href="/settings" />
-          <SidebarItem icon={MdHelpOutline} label="Help" href="/help" />
+          <SidebarItem  icon={FiSettings} label="Paramètres" href="/settings" />
         </div>
       </div>
 

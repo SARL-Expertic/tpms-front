@@ -311,6 +311,7 @@ const handleQuantityChange = (index: number, change: number) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState<string>('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [tpes, setTpes] = useState<FlatTPE[]>([]);
   const [consumableTypes, setConsumableTypes] = useState<ConsumableType[]>([]);
@@ -505,11 +506,14 @@ const resetForm = () => {
   setPreview(null)
   setErrors({}) // This will clear all error messages including stock errors
   setSuccessMessage('')
+  setIsSubmitting(false)
 }
 
 // Handle Submit
 const handleSubmit = async () => {
-  if (!validateForm()) return false;
+  if (!validateForm() || isSubmitting) return false;
+  
+  setIsSubmitting(true);
   
   try {
   
@@ -596,6 +600,8 @@ const handleSubmit = async () => {
     const errorMsg = error?.response?.data?.message || error?.message || "Erreur lors de la création du ticket.";
     setErrors({ general: errorMsg });
     return false;
+  } finally {
+    setIsSubmitting(false);
   }
 };
 
@@ -634,9 +640,20 @@ const handleSubmit = async () => {
       description="Signalez un problème ou demandez une maintenance."
       onConfirm={handleSubmit}
       onClose={resetForm}
-      confirmLabel="Soumettre le ticket"
+      confirmLabel={isSubmitting ? "Création en cours..." : "Soumettre le ticket"}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
+        {/* Loading Overlay */}
+        {isSubmitting && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+            <div className="text-center space-y-3">
+              <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+              <div className="text-lg font-semibold text-blue-700">Création du ticket en cours...</div>
+              <div className="text-sm text-gray-600">Veuillez patienter, ne fermez pas cette fenêtre</div>
+            </div>
+          </div>
+        )}
+        
         {successMessage && (
           <div className="bg-green-100 text-green-700 px-4 py-3 rounded-md">
             {successMessage}
