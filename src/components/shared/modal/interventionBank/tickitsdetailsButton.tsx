@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket } from "@/app/api/tickets";
+import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket, Updateinterventionticket, Updatedeblockingticket, fetchClients, clientfetch } from "@/app/api/tickets";
+import { wilayas } from "@/constants/algeria/wilayas";
 
 type Props = {
   ticket: Ticket;
@@ -94,6 +95,16 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const [availableTPEs, setAvailableTPEs] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<any>(null);
   const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [originalTerminalTypeId, setOriginalTerminalTypeId] = useState<number | null>(null);
+  const [originalTicketData, setOriginalTicketData] = useState<Ticket | null>(null);
+  const [isLookingUpSN, setIsLookingUpSN] = useState(false);
+  
+  // Client selection states for DÉBLOCAGE
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
+  const [selectedExistingClient, setSelectedExistingClient] = useState<any>(null);
+  const [useExistingClient, setUseExistingClient] = useState(false);
+  const [showClientList, setShowClientList] = useState(false);
+  const [selectedWilaya, setSelectedWilaya] = useState<any>(null);
 
   // Fetch consumables when editing starts
   const loadConsumables = async () => {
@@ -105,6 +116,25 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     }
   };
 
+  // Fetch existing clients for DÉBLOCAGE tickets
+  const loadClients = async () => {
+    if (!ticket.bank?.id) {
+      console.warn("No bank ID available for client fetch");
+      setAvailableClients([]);
+      return;
+    }
+    
+    try {
+      const response = await clientfetch(ticket.bank.id);
+      // Handle the response structure with clients array
+      setAvailableClients(response.data?.clients || []);
+    } catch (error) {
+      console.error("Error fetching clients for bank:", ticket.bank.id, error);
+      // Fallback if API doesn't exist yet or fails
+      setAvailableClients([]);
+    }
+  };
+
   // Fetch TPE data when editing starts
   const loadTPEData = async () => {
     if (ticket.bank?.id) {
@@ -113,13 +143,21 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         setAvailableTPEs(response.data || []);
         
         // Set initial brand and models if TPE data exists
-        if (editedTicket.tpe.brand) {
+        if (editedTicket.tpe?.brand) {
           const currentBrand = response.data.find((brand: any) => 
             brand.manufacturer === editedTicket.tpe.brand
           );
           if (currentBrand) {
             setSelectedBrand(currentBrand);
             setAvailableModels(currentBrand.models || []);
+            
+            // Find and store the original terminal_type_id
+            const currentModel = currentBrand.models.find((model: any) => 
+              model.model === editedTicket.tpe.model
+            );
+            if (currentModel) {
+              setOriginalTerminalTypeId(currentModel.id);
+            }
           }
         }
       } catch (error) {
@@ -140,13 +178,116 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     handleNestedChange("tpe", "model", "");
   };
 
+  // Handle SN lookup for DÉBLOCAGE tickets
+  const handleSNLookup = async (serialNumber: string) => {
+    if (type === "DÉBLOCAGE" && serialNumber && serialNumber !== ticket.tpe?.serialNumber) {
+      setIsLookingUpSN(true);
+      try {
+        // This is a placeholder - you'll need to implement the actual API call
+        // const response = await lookupTPEBySerialNumber(serialNumber);
+        // if (response.data && response.data.client) {
+        //   const clientData = response.data.client;
+        //   setEditedTicket(prev => ({
+        //     ...prev,
+        //     client: {
+        //       ...prev.client,
+        //       name: clientData.name || "",
+        //       brand: clientData.brand || "",
+        //       phoneNumber: clientData.phoneNumber || "",
+        //       mobileNumber: clientData.mobileNumber || "",
+        //       location: {
+        //         wilaya: clientData.location?.wilaya || "",
+        //         daira: clientData.location?.daira || "",
+        //         address: clientData.location?.address || ""
+        //       }
+        //     },
+        //     tpe: {
+        //       ...prev.tpe,
+        //       brand: response.data.brand || "",
+        //       model: response.data.model || ""
+        //     }
+        //   }));
+        //   setSuccessMessage("ℹ️ Informations client trouvées et pré-remplies");
+        // }
+        console.log("Looking up SN:", serialNumber);
+      } catch (error) {
+        console.error("Error looking up SN:", error);
+      } finally {
+        setIsLookingUpSN(false);
+      }
+    }
+  };
+
+  // Handle existing client selection for DÉBLOCAGE
+  const handleClientSelection = (client: any) => {
+    setSelectedExistingClient(client);
+    
+    // Set selected wilaya for existing client
+    if (client.location?.wilaya) {
+      setSelectedWilaya(client.location.wilaya);
+    }
+    
+    setEditedTicket(prev => ({
+      ...prev,
+      client: {
+        ...prev.client,
+        id: client.id,
+        name: client.commercialName || client.name || "",
+        brand: client.brand || "",
+        phoneNumber: client.phoneNumber || "",
+        mobileNumber: client.mobileNumber || "",
+        location: {
+          wilaya: client.location?.wilaya || "",
+          daira: client.location?.daira || "",
+          address: client.location?.address || ""
+        }
+      }
+    }));
+    setUseExistingClient(true);
+    setShowClientList(false);
+    setSuccessMessage("✅ Client existant sélectionné");
+  };
+
+  // Toggle between existing and new client
+  const toggleClientType = (useExisting: boolean) => {
+    setUseExistingClient(useExisting);
+    if (!useExisting) {
+      // Reset to new client
+      setSelectedExistingClient(null);
+      setSelectedWilaya(null);
+      setEditedTicket(prev => ({
+        ...prev,
+        client: {
+          ...prev.client,
+          id: "", // Use empty string instead of undefined
+          name: "",
+          brand: "",
+          phoneNumber: "",
+          mobileNumber: "",
+          location: {
+            wilaya: "",
+            daira: "",
+            address: ""
+          }
+        }
+      }));
+    }
+  };
+
   // Load data when editing starts
   useEffect(() => {
     if (isEditing) {
+      // Store original ticket data for comparison
+      setOriginalTicketData({ ...ticket });
       loadConsumables();
       loadTPEData();
+      
+      // Load clients for DÉBLOCAGE tickets
+      if (editedTicket.type === "DÉBLOCAGE") {
+        loadClients();
+      }
     }
-  }, [isEditing]);
+  }, [isEditing, editedTicket.type]);
 
   // Function to handle the GET request
   const handleGetRequest = async () => {
@@ -170,65 +311,127 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   };
 
   const handleSave = async () => {
-    try {
-      // Handle different ticket types
-      if (type === "CHOIX DE RÉSEAU") {
-        // For network check tickets, call the update API
-        const updateData = {
-          client_id: parseInt(client.id.toString()), // Always send client_id as number
-          bank_id: editedTicket.bank ? editedTicket.bank.id : null, // Send bank_id from edited ticket
-          client_commercialName: editedTicket.client.name,
-          client_phoneNumber: editedTicket.client.phoneNumber,
-          client_brand: editedTicket.client.brand,
-          client_wilaya: editedTicket.client.location?.wilaya || "",
-          client_daira: editedTicket.client.location?.daira || "",
-          client_address: editedTicket.client.location?.address || "",
-          notes: editedTicket.note || "",
-          status: frenchToEnglishStatus(editedTicket.status) // Convert French status to English
-        };
+    if (!originalTicketData) return;
 
-        await UpdateNetworkCheckTicket(parseInt(editedTicket.id), updateData);
-        setSuccessMessage("✅ Ticket mis à jour avec succès !");
+    // Function to get only changed fields
+    const getChangedFields = () => {
+      const changes: any = {};
+      
+      // Check status change
+      if (editedTicket.status !== originalTicketData.status) {
+        changes.status = frenchToEnglishStatus(editedTicket.status);
+      }
+      
+      // Check notes change
+      if (editedTicket.note !== originalTicketData.note) {
+        changes.notes = editedTicket.note || "";
+      }
+      
+      // Check client changes
+      if (editedTicket.client.name !== originalTicketData.client?.name) {
+        changes.client_commercialName = editedTicket.client.name;
+      }
+      if (editedTicket.client.phoneNumber !== originalTicketData.client?.phoneNumber) {
+        changes.client_phoneNumber = editedTicket.client.phoneNumber;
+      }
+      if (editedTicket.client.brand !== originalTicketData.client?.brand) {
+        changes.client_brand = editedTicket.client.brand;
+      }
+      if (editedTicket.client.location?.wilaya !== originalTicketData.client?.location?.wilaya) {
+        changes.client_wilaya = editedTicket.client.location?.wilaya || "";
+      }
+      if (editedTicket.client.location?.daira !== originalTicketData.client?.location?.daira) {
+        changes.client_daira = editedTicket.client.location?.daira || "";
+      }
+      if (editedTicket.client.location?.address !== originalTicketData.client?.location?.address) {
+        changes.client_address = editedTicket.client.location?.address || "";
+      }
+      
+      // Check TPE changes
+      if (editedTicket.tpe?.serialNumber !== originalTicketData.tpe?.serialNumber) {
+        changes.tpe_serialNumber = editedTicket.tpe?.serialNumber || "";
+      }
+      
+      // Check terminal_type_id change
+      const selectedModel = availableModels.find((model: any) => model.model === editedTicket.tpe?.model);
+      const currentTerminalTypeId = selectedModel?.id || null;
+      if (currentTerminalTypeId !== originalTerminalTypeId) {
+        changes.terminal_type_id = currentTerminalTypeId;
+      }
+      
+      // Check intervention problem change
+      if (type === "INTERVENTION" && editedTicket.intervention?.problem !== originalTicketData.intervention?.problem) {
+        changes.problem_description = editedTicket.intervention?.problem || "";
+      }
+      
+      // Check consumables changes
+      if (type === "CONSOMMABLE") {
+        const originalItems = originalTicketData.consumableRequest?.items || [];
+        const currentItems = editedTicket.consumableRequest?.items || [];
         
-        // Call onClose to refresh the table
-        if (onClose) {
-          setTimeout(() => onClose(), 1000);
+        if (JSON.stringify(originalItems) !== JSON.stringify(currentItems)) {
+          changes.consumables = currentItems;
         }
-      } else if (type === "CONSOMMABLE") {
-        // For consumable tickets, call the update API
-        // Find the selected terminal type ID
-        const selectedModel = availableModels.find((model: any) => model.model === editedTicket.tpe.model);
-        const terminal_type_id = selectedModel?.id || null;
+      }
+      
+      return changes;
+    };
 
-        const updateData = {
-          terminal_type_id,
-          new_client: false, // Since we're updating existing ticket, it's not a new client
-          client_id: parseInt(editedTicket.client.id.toString()),
-          bank_id: editedTicket.bank ? editedTicket.bank.id : null,
-          client_commercialName: editedTicket.client.name,
-          client_phoneNumber: editedTicket.client.phoneNumber,
-          client_brand: editedTicket.client.brand,
-          client_wilaya: editedTicket.client.location?.wilaya || "",
-          client_daira: editedTicket.client.location?.daira || "",
-          client_address: editedTicket.client.location?.address || "",
-          notes: editedTicket.note || "",
-          status: frenchToEnglishStatus(editedTicket.status), // Convert French status to English
-          consumables: editedTicket.consumableRequest?.items || []
-        };
+    try {
+      const changedFields = getChangedFields();
+      
+      // If no changes, don't make API call
+      if (Object.keys(changedFields).length === 0) {
+        setSuccessMessage("ℹ️ Aucune modification détectée");
+        setIsEditing(false);
+        return;
+      }
 
-        await Updateconsoambleticket(parseInt(editedTicket.id), updateData);
-        setSuccessMessage("✅ Ticket consommable mis à jour avec succès !");
-        
-        // Call onClose to refresh the table
-        if (onClose) {
-          setTimeout(() => onClose(), 1000);
+      // Always include required fields for API
+      const baseData: any = {
+        bank_id: editedTicket.bank ? editedTicket.bank.id : null,
+        ...changedFields
+      };
+
+      // Handle client data based on ticket type and client selection
+      if (type === "DÉBLOCAGE") {
+        if (useExistingClient && selectedExistingClient) {
+          // Existing client - send client_id and set new_client to false
+          baseData.new_client = false;
+          baseData.client_id = selectedExistingClient.id;
+        } else {
+          // New client - set new_client to true and don't send client_id
+          baseData.new_client = true;
         }
       } else {
-        // For other ticket types, use the existing onSave prop
+        // For other ticket types, use existing logic
+        baseData.new_client = false;
+        baseData.client_id = parseInt(editedTicket.client?.id?.toString() || "0");
+      }
+
+      // Handle different ticket types
+      if (type === "CHOIX DE RÉSEAU") {
+        await UpdateNetworkCheckTicket(parseInt(editedTicket.id), baseData);
+        setSuccessMessage("✅ Ticket mis à jour avec succès !");
+      } else if (type === "CONSOMMABLE") {
+        await Updateconsoambleticket(parseInt(editedTicket.id), baseData);
+        setSuccessMessage("✅ Ticket consommable mis à jour avec succès !");
+      } else if (type === "INTERVENTION") {
+        await Updateinterventionticket(parseInt(editedTicket.id), baseData);
+        setSuccessMessage("✅ Ticket intervention mis à jour avec succès !");
+      } else if (type === "DÉBLOCAGE") {
+        await Updatedeblockingticket(parseInt(editedTicket.id), baseData);
+        setSuccessMessage("✅ Ticket déblocage mis à jour avec succès !");
+      } else {
         onSave(editedTicket);
       }
       
       setIsEditing(false);
+      
+      // Call onClose to refresh the table
+      if (onClose) {
+        setTimeout(() => onClose(), 1000);
+      }
     } catch (error: any) {
       console.error("Error updating ticket:", error);
       
@@ -937,64 +1140,330 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
 
         {/* DÉBLOCAGE Information - Separate section */}
         {type === "DÉBLOCAGE" && (
-          <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
-                <FaCreditCard className="text-red-600 dark:text-red-400" />
-              </div>
-              TPE - Déblocage
-            </h3>
-            {tpe && (
+          <>
+            {/* Client Information for DÉBLOCAGE */}
+            <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
+                  <FaUser className="text-green-600 dark:text-green-400" />
+                </div>
+                Client (Déblocage)
+              </h3>
+              
+              {isEditing && (
+                <div className="ml-12 mb-4">
+                  <div className="flex gap-4 mb-3">
+                    <Button
+                      type="button"
+                      variant={useExistingClient ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleClientType(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="radio"
+                        checked={useExistingClient}
+                        onChange={() => {}}
+                        className="w-4 h-4"
+                      />
+                      Client existant
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={!useExistingClient ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleClientType(false)}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="radio"
+                        checked={!useExistingClient}
+                        onChange={() => {}}
+                        className="w-4 h-4"
+                      />
+                      Nouveau client
+                    </Button>
+                  </div>
+                  
+                  {/* Existing Client Selection */}
+                  {useExistingClient && (
+                    <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20">
+                      <div className="space-y-2">
+                        <span className="font-medium text-sm">Sélectionner un client existant:</span>
+                        <Select
+                          value={selectedExistingClient?.id?.toString() || ""}
+                          onValueChange={(clientId) => {
+                            const client = availableClients.find(c => c.id.toString() === clientId);
+                            if (client) {
+                              handleClientSelection(client);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Choisir un client existant" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {availableClients.length > 0 ? (
+                              availableClients.map((client: any) => (
+                                <SelectItem key={client.id} value={client.id.toString()}>
+                                  <div className="flex flex-col">
+                                    <div className="font-medium">
+                                      {client.commercialName || client.name || 'Client sans nom'}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {client.phoneNumber} • {client.brand || 'Enseigne non spécifiée'}
+                                      {client.location && ` • ${client.location.wilaya || ''}`}
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-clients" disabled>
+                                Aucun client disponible
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="grid gap-2 text-sm ml-12">
                 <div>
-                  <span className="text-muted-foreground">SN:</span>
+                  <span className="text-muted-foreground">Nom du client :</span>
                   {isEditing ? (
                     <Input
-                      value={tpe.serialNumber}
+                      value={client?.name || ""}
+                      onChange={(e) =>
+                        handleNestedChange("client", "name", e.target.value)
+                      }
+                      className="mt-1"
+                      placeholder={useExistingClient ? "Client sélectionné" : "Nom sera rempli automatiquement lors de la saisie du SN"}
+                      disabled={useExistingClient && selectedExistingClient}
+                    />
+                  ) : (
+                    ` ${client?.name || "N/A"}`
+                  )}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">
+                    Nom de l'enseigne:
+                  </span>
+                  {isEditing ? (
+                    <Input
+                      value={client?.brand || ""}
+                      onChange={(e) =>
+                        handleNestedChange("client", "brand", e.target.value)
+                      }
+                      className="mt-1"
+                      disabled={useExistingClient && selectedExistingClient}
+                    />
+                  ) : (
+                    ` ${client?.brand || "N/A"}`
+                  )}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Téléphone:</span>
+                  {isEditing ? (
+                    <Input
+                      value={client?.phoneNumber || ""}
                       onChange={(e) =>
                         handleNestedChange(
-                          "tpe",
-                          "serialNumber",
+                          "client",
+                          "phoneNumber",
                           e.target.value
                         )
                       }
                       className="mt-1"
+                      disabled={useExistingClient && selectedExistingClient}
                     />
                   ) : (
-                    ` ${tpe.serialNumber}`
+                    ` ${client?.phoneNumber || "N/A"}`
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Modèle:</span>
+                  <span className="text-muted-foreground">Mobile:</span>
                   {isEditing ? (
                     <Input
-                      value={tpe.model}
+                      value={client?.mobileNumber || ""}
                       onChange={(e) =>
-                        handleNestedChange("tpe", "model", e.target.value)
+                        handleNestedChange(
+                          "client",
+                          "mobileNumber",
+                          e.target.value
+                        )
                       }
                       className="mt-1"
+                      disabled={useExistingClient && selectedExistingClient}
                     />
                   ) : (
-                    ` ${tpe.model}`
+                    ` ${client?.mobileNumber || "N/A"}`
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Marque:</span>
+                  <span className="text-muted-foreground">Adresse:</span>
                   {isEditing ? (
-                    <Input
-                      value={tpe.brand}
-                      onChange={(e) =>
-                        handleNestedChange("tpe", "brand", e.target.value)
-                      }
-                      className="mt-1"
-                    />
+                    <div className="grid grid-cols-1 gap-2 mt-1">
+                      {/* Wilaya Dropdown */}
+                      <Select
+                        value={client?.location?.wilaya || ""}
+                        onValueChange={(value) => {
+                          setSelectedWilaya(value);
+                          handleNestedChange("client", "location", {
+                            ...client?.location,
+                            wilaya: value,
+                            daira: "" // Reset daira when wilaya changes
+                          });
+                        }}
+                        disabled={useExistingClient && selectedExistingClient}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner une wilaya" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {Object.keys(wilayas).map((wilayaName, index) => (
+                            <SelectItem key={index} value={wilayaName}>
+                              {String(index + 1).padStart(2, '0')} - {wilayaName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Daira Dropdown */}
+                      <Select
+                        value={client?.location?.daira || ""}
+                        onValueChange={(value) =>
+                          handleNestedChange("client", "location", {
+                            ...client?.location,
+                            daira: value,
+                          })
+                        }
+                        disabled={(useExistingClient && selectedExistingClient) || !selectedWilaya}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner une daira" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {selectedWilaya && wilayas[selectedWilaya] ? 
+                            wilayas[selectedWilaya].map((daira: string, index: number) => (
+                              <SelectItem key={index} value={daira}>
+                                {daira}
+                              </SelectItem>
+                            )) : []
+                          }
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Address Input */}
+                      <Input
+                        placeholder="Adresse"
+                        value={client?.location?.address || ""}
+                        onChange={(e) =>
+                          handleNestedChange("client", "location", {
+                            ...client?.location,
+                            address: e.target.value,
+                          })
+                        }
+                        disabled={useExistingClient && selectedExistingClient}
+                      />
+                    </div>
                   ) : (
-                    ` ${tpe.brand}`
+                    ` ${client?.location?.wilaya || "N/A"}, ${
+                      client?.location?.daira || "N/A"
+                    }, ${client?.location?.address || "N/A"}`
                   )}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+
+            {/* TPE Information for DÉBLOCAGE */}
+            <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
+                  <FaCreditCard className="text-red-600 dark:text-red-400" />
+                </div>
+                TPE - Déblocage
+              </h3>
+              {tpe && (
+                <div className="grid gap-2 text-sm ml-12">
+                  <div>
+                    <span className="text-muted-foreground">Marque:</span>
+                    {isEditing ? (
+                      <Select
+                        value={tpe.brand}
+                        onValueChange={handleBrandChange}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Sélectionner une marque" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableTPEs.map((brand: any) => (
+                            <SelectItem key={brand.manufacturer_id} value={brand.manufacturer}>
+                              {brand.manufacturer}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      ` ${tpe.brand}`
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Modèle:</span>
+                    {isEditing ? (
+                      <Select
+                        value={tpe.model}
+                        onValueChange={(value) =>
+                          handleNestedChange("tpe", "model", value)
+                        }
+                        disabled={!selectedBrand || availableModels.length === 0}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Sélectionner un modèle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels.map((model: any) => (
+                            <SelectItem key={model.id} value={model.model}>
+                              {model.model}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      ` ${tpe.model}`
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">SN:</span>
+                    {isEditing ? (
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          value={tpe.serialNumber}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            handleNestedChange("tpe", "serialNumber", value);
+                            // Trigger SN lookup with debounce
+                            setTimeout(() => handleSNLookup(value), 500);
+                          }}
+                          placeholder="Entrez le numéro de série"
+                          disabled={isLookingUpSN}
+                        />
+                        {isLookingUpSN && (
+                          <div className="flex items-center px-2">
+                            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      ` ${tpe.serialNumber}`
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Notes */}

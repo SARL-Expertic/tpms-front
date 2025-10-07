@@ -251,9 +251,6 @@ export const Updateinterventionticket = (
   data: NewOrExistingClient & {
     terminal_type_id?: number | null;
     tpe_serialNumber?: string;
-    status?: string;
-    brand?: string;
-    model?: string;
     problem_description?: string;
   }
 ) => api.put(`${ENDPOINTS.UPDATEINTERVENTIONTICKET}/${ticket_id}`, data);
@@ -262,7 +259,7 @@ export const Updatedeblockingticket = (
   ticket_id: number,
   data: NewOrExistingClient & {
     terminal_type_id?: number | null;
-    tpe_serialNumber?: string;
+    serialNumber?: string;
     status?: string;
 
   }

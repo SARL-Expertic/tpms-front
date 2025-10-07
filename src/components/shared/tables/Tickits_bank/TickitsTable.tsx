@@ -62,7 +62,7 @@ export default function TickitsTable() {
           } : undefined,
           tpe: {
             tpetype: ticket?.tpe?.terminalType?.id ?? '-',
-            serialNumber: ticket?.tpe?.serialNumber ?? 'N/A',
+            serialNumber: ticket?.tpe?.serialNumber ?? '',
             brand: ticket?.terminalType?.manufacturer?.name ?? '-',
             id_brand: ticket?.terminalType?.manufacturer?.id ?? '',
             model: ticket?.terminalType?.model?.name ?? '-',
