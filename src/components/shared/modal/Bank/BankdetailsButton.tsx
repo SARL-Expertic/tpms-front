@@ -101,6 +101,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [numberOfModels, setNumberOfModels] = useState<number>(0);
   
   // TPE selection states
   const [availableTPEBrands, setAvailableTPEBrands] = useState<AvailableTPEBrand[]>([]);
@@ -455,7 +456,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
     const newTPE: TpeBrand = {
       id: selectedModelData.id, // The terminal type ID to send to backend
       name: selectedManufacturer, // The manufacturer name
-      models: [{ id: selectedModelData.id, name: selectedModelData.model }]
+      models: [{ id: selectedModelData.id, name: selectedModelData.model }],
     };
 
     setEditedBank(prev => ({
@@ -981,12 +982,16 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                                 <div  key={tpe.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3">
-                                      <span className="font-medium">{tpe.models[index]?.name || 'N/A'}</span>
+                                  
+                                        <span className="font-medium">{tpe.models[index]?.name || 'N/A'}</span>
+                                   
+
                                       <span className="text-xs font-mono bg-blue-50 text-blue-600 px-2 py-1 rounded">
                                         ID: {tpe.id}
                                       </span>
                                     </div>
                                   </div>
+                                  
                                   {isEditing && (
                                     <Button 
                                       variant="ghost" 
