@@ -241,7 +241,7 @@ export const Updateconsoambleticket = (
   data: NewOrExistingClient & {
     consumables: { type: string; quantity: number }[];
     terminal_type_id?: number | null;
-    tpe_seriel_number?: string;
+    serialNumber?: string;
     status?: string;
   }
 ) => api.put(`${ENDPOINTS.UPDATECONSUMABLETICKET}/${ticket_id}`, data);
@@ -273,3 +273,6 @@ export const fetchConsumablesBankEmployee = () => api.get(ENDPOINTS.CONSUMABLEIT
 export const  USERFETCH  = () => api.get(ENDPOINTS.USER_ME)
 export const  updateUSER  = (data: { firstName?: string; lastName?: string; phoneNumber?: string; password?: string; }) => api.put(ENDPOINTS.USER, data)
 export const  updateUSERAccountManager  = (data: { firstName?: string; lastName?: string; phoneNumber?: string; password?: string; }) => api.put(ENDPOINTS.USERAccountManager, data)
+
+export const deletemodel = (id: number) => api.delete(`${ENDPOINTS.TERMINALTYPES}/model/${id}`);
+export const deletemanufacturer = (id: number) => api.delete(`${ENDPOINTS.TERMINALTYPES}/manufacturer/${id}`);

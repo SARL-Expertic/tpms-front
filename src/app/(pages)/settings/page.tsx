@@ -8,6 +8,7 @@ type UserData = {
   email: string;
   first_name: string;
   last_name: string;
+  phone?: string;
   role: string;
 };
 
@@ -35,7 +36,7 @@ export default function SettingsPage() {
     firstName: '',
     lastName: '',
     email: '',
-    phoneNumber: ''
+    phone: ''
   });
 
   const [originalUserData, setOriginalUserData] = useState({
@@ -68,11 +69,18 @@ export default function SettingsPage() {
           firstName: userData.user.first_name,
           lastName: userData.user.last_name,
           email: userData.user.email,
-          phoneNumber: '' // Phone number not in user object, will be handled separately
+          phone: userData.user.phone || '' // Assuming phone might be optional
+        };
+
+        const originalUserDataObj = {
+          firstName: userData.user.first_name,
+          lastName: userData.user.last_name,
+          email: userData.user.email,
+          phoneNumber: userData.user.phone || ''
         };
         
         setUserData(userDataObj);
-        setOriginalUserData(userDataObj);
+        setOriginalUserData(originalUserDataObj);
         
         setBankInfo(userData.bank);
       } catch (err) {
@@ -110,8 +118,8 @@ export default function SettingsPage() {
       if (userData.lastName !== originalUserData.lastName) {
         updatePayload.lastName = userData.lastName;
       }
-      if (userData.phoneNumber !== originalUserData.phoneNumber) {
-        updatePayload.phoneNumber = userData.phoneNumber;
+      if (userData.phone !== originalUserData.phoneNumber) {
+        updatePayload.phoneNumber = userData.phone;
       }
       
       // Only send update if there are actual changes
@@ -246,8 +254,8 @@ export default function SettingsPage() {
                   <input
                     type="tel"
                     id="phoneNumber"
-                    value={userData.phoneNumber}
-                    onChange={(e) => setUserData({ ...userData, phoneNumber: e.target.value })}
+                    value={userData.phone}
+                    onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
                     disabled={isUpdating}
                     placeholder="+213..."
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"

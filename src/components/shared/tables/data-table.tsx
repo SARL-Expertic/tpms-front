@@ -33,7 +33,9 @@ export function DataTable<TData extends Record<string, any>, TValue>({
   recherche = true,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState("")
-  const [filterState, setFilterState] = useState<Record<string, string>>({})
+  const [filterState, setFilterState] = useState<Record<string, string>>({
+    status: "EN ATTENTE" // Default to "EN ATTENTE" for status filter
+  })
 
  // Filtered data logic
 const filteredData = useMemo(() => {

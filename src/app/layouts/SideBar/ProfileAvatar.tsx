@@ -57,28 +57,28 @@ export default function ProfileAvatar() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <div className="flex justify-between items-center gap-3 cursor-pointer">
+        <div className="flex justify-between items-center gap-1 sm:gap-2 md:gap-3 cursor-pointer">
           <div className="flex items-center">
-            <Avatar className="h-12 w-12 border-2 border-white shadow-lg">
+            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 border-2 border-white shadow-lg">
               <AvatarImage src={avatar} alt="Profile Picture" className="object-cover" />
-              <AvatarFallback>{initials}</AvatarFallback>
+              <AvatarFallback className="text-xs sm:text-sm">{initials}</AvatarFallback>
             </Avatar>
 
             <div
               className={`
                 overflow-hidden transition-all duration-300 ease-in-out
-                ${collapsed ? "max-w-0 opacity-0 scale-95" : "max-w-[200px] opacity-100 scale-100 ml-2"}
+                ${collapsed ? "max-w-0 opacity-0 scale-95" : "max-w-[150px] sm:max-w-[180px] md:max-w-[200px] opacity-100 scale-100 ml-1 sm:ml-2"}
               `}
               style={{ transitionProperty: "max-width, opacity, transform" }}
             >
-              <p className="text-xs text-muted-foreground">Welcome back 👋</p>
-              <p className="font-semibold text-sm text-foreground">{name}</p>
+              <p className="text-xs sm:text-xs text-muted-foreground">Welcome back 👋</p>
+              <p className="font-semibold text-xs sm:text-sm text-foreground truncate">{name}</p>
             </div>
           </div>
 
           <FaChevronRight
-            size={18}
-            className={`text-muted-foreground transition-transform duration-300 ${
+            size={14}
+            className={`sm:text-base md:text-lg text-muted-foreground transition-transform duration-300 ${
               collapsed ? "rotate-180" : ""
             }`}
           />

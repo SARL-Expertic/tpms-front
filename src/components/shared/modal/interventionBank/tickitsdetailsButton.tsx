@@ -51,7 +51,6 @@ const statusColorMap: Record<string, string> = {
   ANNULÉ: "bg-red-600",
   "EN ATTENTE D'APPROBATION (MASQUÉ)": "bg-yellow-500",
   MASQUÉ: "bg-gray-400",
-  "EN COURS": "bg-orange-500",
 };
 
 const statusOptions = [
@@ -63,8 +62,7 @@ const statusOptions = [
   "LIVRÉ",
   "ANNULÉ",
   "EN ATTENTE D'APPROBATION (MASQUÉ)",
-  "MASQUÉ",
-  "EN COURS"
+  "MASQUÉ"
 ];
 
 // Function to convert French status to English for API
@@ -78,8 +76,7 @@ const frenchToEnglishStatus = (frenchStatus: string): string => {
     "LIVRÉ": "DELIVERED",
     "ANNULÉ": "CANCELLED",
     "EN ATTENTE D'APPROBATION (MASQUÉ)": "HIDDEN_PENDING_APPROVAL",
-    "MASQUÉ": "HIDDEN",
-    "EN COURS": "IN_PROGRESS"
+    "MASQUÉ": "HIDDEN"
   };
   return reverseMap[frenchStatus] || frenchStatus;
 };
@@ -372,6 +369,16 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         if (JSON.stringify(originalItems) !== JSON.stringify(currentItems)) {
           changes.consumables = currentItems;
         }
+        
+        // Always include serial number for consumable tickets
+        if (editedTicket.tpe?.serialNumber) {
+          changes.serialNumber = editedTicket.tpe.serialNumber;
+        }
+      }
+      
+      // Always include serial number for déblocage tickets
+      if (type === "DÉBLOCAGE" && editedTicket.tpe?.serialNumber) {
+        changes.serialNumber = editedTicket.tpe.serialNumber;
       }
       
       return changes;

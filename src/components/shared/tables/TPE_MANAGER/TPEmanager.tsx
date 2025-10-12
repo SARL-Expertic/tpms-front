@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState, useCallback } from "react"
-import { fetchTPES_Manager } from "@/app/api/tickets"
+import { fetchTPES_Manager, deletemodel, deletemanufacturer } from "@/app/api/tickets"
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,11 +15,13 @@ import {
   FaSearch, 
   FaSync, 
   FaFilter,
-  FaPlus 
+  FaPlus,
+  FaTrash 
 } from "react-icons/fa"
 import NewBrandModal from "../../modal/tpe/Nouvelle_marque"
 import NewModelModal from "../../modal/tpe/Nouvelle_model"
 import { CardSkeleton } from "@/components/magic-loaders/card-skeleton"
+import { ConfirmDeleteModal } from "../../modal/ConfirmDeleteModal"
 
 interface TPE {
   id: string
@@ -36,6 +38,8 @@ interface TPE {
   warrantyExpiry?: string
   createdAt?: string
   updatedAt?: string
+  manufacturerId?: number
+  modelId?: number
 }
 
 interface GroupedTPE {
@@ -50,6 +54,70 @@ export default function TPESTable() {
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set())
   const [searchTerm, setSearchTerm] = useState("")
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: "model" | "manufacturer";
+    id: number;
+    name: string;
+  }>({
+    isOpen: false,
+    type: "model",
+    id: 0,
+    name: "",
+  });
+
+  // Delete model handler
+  const handleDeleteModel = async (modelId: number, modelName: string) => {
+    setDeleteModal({
+      isOpen: true,
+      type: "model",
+      id: modelId,
+      name: modelName,
+    });
+  }
+
+  // Delete manufacturer handler  
+  const handleDeleteManufacturer = async (manufacturerId: number, manufacturerName: string) => {
+    setDeleteModal({
+      isOpen: true,
+      type: "manufacturer",
+      id: manufacturerId,
+      name: manufacturerName,
+    });
+  }
+
+  // Confirm delete action
+  const confirmDelete = async () => {
+    const { type, id, name } = deleteModal;
+    
+    setIsDeleting(type === "manufacturer" ? name : id.toString());
+    
+    try {
+      if (type === "model") {
+        await deletemodel(id);
+        console.log('Model deleted successfully:', id);
+      } else {
+        await deletemanufacturer(id);
+        console.log('Manufacturer deleted successfully:', id);
+      }
+      
+      await handleRefresh(); // Refresh after deletion
+      setDeleteModal({ isOpen: false, type: "model", id: 0, name: "" });
+    } catch (error) {
+      console.error(`Error deleting ${type}:`, error);
+      alert(`Erreur lors de la suppression ${type === "model" ? "du modèle" : "de la marque"}`);
+    } finally {
+      setIsDeleting(null);
+    }
+  }
+
+  // Close delete modal
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, type: "model", id: 0, name: "" });
+  }
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
@@ -77,6 +145,8 @@ export default function TPESTable() {
           updatedAt: tpe?.updatedAt
             ? format(new Date(tpe.updatedAt), "dd/MM/yyyy HH:mm")
             : "",
+          manufacturerId: tpe?.manufacturer?.id ?? null,
+          modelId: tpe?.modelId ?? null,
         }
       })
 
@@ -263,10 +333,12 @@ export default function TPESTable() {
                 <Card key={manufacturer} className="overflow-hidden">
                   {/* Brand Header */}
                   <div 
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 cursor-pointer hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all"
-                    onClick={() => toggleBrand(manufacturer)}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all"
                   >
-                    <div className="flex items-center gap-3">
+                    <div 
+                      className="flex items-center gap-3 cursor-pointer flex-1"
+                      onClick={() => toggleBrand(manufacturer)}
+                    >
                       <div className="flex items-center gap-2">
                         {expandedBrands.has(manufacturer) ? (
                           <FaChevronDown className="text-gray-500 transition-transform" />
@@ -284,9 +356,27 @@ export default function TPESTable() {
                         </p>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="px-3 py-1">
-                      {manufacturerTpes.length}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="px-3 py-1">
+                        {manufacturerTpes.length}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const manufacturerId = manufacturerTpes[0]?.manufacturerId
+                          if (manufacturerId) {
+                            handleDeleteManufacturer(manufacturerId, manufacturer)
+                          }
+                        }}
+                        disabled={isDeleting === manufacturer}
+                        className="flex items-center gap-1"
+                      >
+                        <FaTrash className="text-xs" />
+                        {isDeleting === manufacturer ? "..." : "Supprimer"}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Models Table */}
@@ -334,7 +424,23 @@ export default function TPESTable() {
                                   {tpe.updatedAt || "-"}
                                 </td>
                                 <td className="px-4 py-3">
-                                  <TPEDetailsButton tpe={tpe} onUpdate={handleRefresh} />
+                                  <div className="flex items-center gap-2">
+                                    <TPEDetailsButton tpe={tpe} onUpdate={handleRefresh} />
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => {
+                                        if (tpe.modelId) {
+                                          handleDeleteModel(tpe.modelId, tpe.model)
+                                        }
+                                      }}
+                                      disabled={isDeleting === tpe.modelId?.toString()}
+                                      className="flex items-center gap-1"
+                                    >
+                                      <FaTrash className="text-xs" />
+                                      {isDeleting === tpe.modelId?.toString() ? "..." : "Supprimer"}
+                                    </Button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -349,6 +455,22 @@ export default function TPESTable() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title={`Supprimer ${deleteModal.type === "manufacturer" ? "la marque" : "le modèle"}`}
+        description={
+          deleteModal.type === "manufacturer"
+            ? "Cette action supprimera définitivement la marque et tous ses modèles associés. Cette action ne peut pas être annulée."
+            : "Cette action supprimera définitivement ce modèle. Cette action ne peut pas être annulée."
+        }
+        itemName={deleteModal.name}
+        deleteType={deleteModal.type}
+        isDeleting={isDeleting !== null}
+      />
     </div>
   )
 }
