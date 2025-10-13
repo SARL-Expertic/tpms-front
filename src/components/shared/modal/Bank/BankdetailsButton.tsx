@@ -987,7 +987,7 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
                               Modèles associés
                             </label>
                             <div className="grid gap-2">
-                              {tpes.map((tpe, index) => {
+                              {tpes.map((tpe) => {
                                 // Check if this is a newly added model for different styling
                                 const isNewlyAdded = newlyAddedModels.some(newTpe => newTpe.id === tpe.id);
                                 
@@ -995,19 +995,13 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
                                 <div  key={tpe.id} className={`flex items-center justify-between p-3 rounded-lg border ${isNewlyAdded ? 'bg-green-50 border-green-200' : 'bg-muted/30'}`}>
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3">
-                                          {!isNewlyAdded && (
-                                            <span className="font-medium">{tpe.models[index]?.name || 'N/A'}</span>
-                                          )}
-                                      {isNewlyAdded && (<>
+                                      {isNewlyAdded && (
                                         <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
                                           Nouveau
                                         </span>
+                                      )}
                                       
                                       <span className="font-medium">{tpe.models[0]?.name || 'N/A'}</span>
-                                  </>
-                                   )}
-
-                                
                                     </div>
                                   </div>
                                   

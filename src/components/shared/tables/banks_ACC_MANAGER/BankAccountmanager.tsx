@@ -63,10 +63,13 @@ type Bank = {
     id: number;
     terminalType: {
       id: number;
+      model: {
+        id: number;
+        name: string;
+      };
       manufacturer: {
         id: number;
         name: string;
-        models: { id: number; name: string; }[];
       };
     };
   }[];
@@ -95,8 +98,12 @@ export default function BanksTable() {
         currentLocation: bank.currentLocation || undefined,
         status: bank.status || 'INACTIVE',
         numberofaccount: Array.isArray(bank.employees) ? bank.employees.length : 0,
-        terminaltpemarques: bank.preferredTerminalTypes 
-          ? bank.preferredTerminalTypes.map((ptt: any) => ptt.terminalType?.manufacturer?.name || 'N/A').join(', ') 
+        terminaltpemarques: bank.preferredTerminalTypes && Array.isArray(bank.preferredTerminalTypes)
+          ? bank.preferredTerminalTypes.map((ptt: any) => {
+              const manufacturer = ptt.terminalType?.manufacturer?.name || 'N/A';
+              const model = ptt.terminalType?.model?.name || '';
+              return `${manufacturer} ${model}`.trim();
+            }).join(', ') 
           : 'N/A',
         subaccounts: Array.isArray(bank.employees)
           ? bank.employees.map((emp: any) => ({
@@ -106,11 +113,14 @@ export default function BanksTable() {
               phone: emp.phone || 'N/A',
             }))
           : [],
-        tpes: bank.preferredTerminalTypes 
+        tpes: bank.preferredTerminalTypes && Array.isArray(bank.preferredTerminalTypes)
           ? bank.preferredTerminalTypes.map((ptt: any) => ({
               id: ptt.terminalType?.id || 0,
               name: ptt.terminalType?.manufacturer?.name || 'N/A',
-              models: ptt.terminalType?.manufacturer?.models || []
+              models: [{
+                id: ptt.terminalType?.model?.id || 0,
+                name: ptt.terminalType?.model?.name || 'N/A'
+              }]
             }))
           : [],
       }));
@@ -314,8 +324,12 @@ export default function BanksTable() {
                   currentLocation: newBank.currentLocation ?? undefined,
                   status: newBank.status ?? 'INACTIVE',
                   numberofaccount: Array.isArray(newBank.employees) ? newBank.employees.length : 0,
-                  terminaltpemarques: newBank.preferredTerminalTypes 
-                    ? newBank.preferredTerminalTypes.map((ptt: any) => ptt.terminalType?.manufacturer?.name || 'N/A').join(', ') 
+                  terminaltpemarques: newBank.preferredTerminalTypes && Array.isArray(newBank.preferredTerminalTypes)
+                    ? newBank.preferredTerminalTypes.map((ptt: any) => {
+                        const manufacturer = ptt.terminalType?.manufacturer?.name || 'N/A';
+                        const model = ptt.terminalType?.model?.name || '';
+                        return `${manufacturer} ${model}`.trim();
+                      }).join(', ') 
                     : 'N/A',
                   subaccounts: Array.isArray(newBank.employees)
                     ? newBank.employees.map((emp: any) => ({
@@ -325,11 +339,14 @@ export default function BanksTable() {
                         phone: emp.phone || 'N/A',
                       }))
                     : [],
-                  tpes: newBank.preferredTerminalTypes 
+                  tpes: newBank.preferredTerminalTypes && Array.isArray(newBank.preferredTerminalTypes)
                     ? newBank.preferredTerminalTypes.map((ptt: any) => ({
                         id: ptt.terminalType?.id || 0,
                         name: ptt.terminalType?.manufacturer?.name || 'N/A',
-                        models: ptt.terminalType?.manufacturer?.models || []
+                        models: [{
+                          id: ptt.terminalType?.model?.id || 0,
+                          name: ptt.terminalType?.model?.name || 'N/A'
+                        }]
                       }))
                     : [],
                 }]);
