@@ -310,6 +310,8 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const handleSave = async () => {
     if (!originalTicketData) return;
 
+    setIsLoading(true);
+    
     // Function to get only changed fields
     const getChangedFields = () => {
       const changes: any = {};
@@ -470,6 +472,8 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       } else {
         setSuccessMessage("❌ Erreur lors de la mise à jour du ticket");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -648,15 +652,17 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
               <Button
                 onClick={handleSave}
                 size="sm"
+                disabled={isLoading}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
               >
                 <FaSave />
-                Enregistrer
+                {isLoading ? "Enregistrement..." : "Enregistrer"}
               </Button>
               <Button
                 onClick={handleCancel}
                 variant="outline"
                 size="sm"
+                disabled={isLoading}
                 className="flex items-center gap-2"
               >
                 <FaTimes />
