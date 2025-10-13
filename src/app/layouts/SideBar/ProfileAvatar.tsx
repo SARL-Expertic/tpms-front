@@ -85,7 +85,7 @@ export default function ProfileAvatar() {
         </div>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent side="left" align="end" className="relative w-48 top-38 mt-128">
+  <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-56">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/settings")}>Profile</DropdownMenuItem>

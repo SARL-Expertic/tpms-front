@@ -274,7 +274,12 @@ const handleConsumableItemChange = (index: number, field: string, value: string)
   setConsumableData(prev => ({
     ...prev,
     items: prev.items.map((item, i) => 
-      i === index ? { ...item, [field]: value } : item
+      i === index
+        ? {
+            ...item,
+            [field]: field === 'quantity' ? Math.max(1, Number(value) || 1) : value
+          }
+        : item
     )
   }));
   
@@ -294,7 +299,7 @@ const handleQuantityChange = (index: number, change: number) => {
     ...prev,
     items: prev.items.map((item, i) => {
       if (i === index) {
-        const currentQty = item.quantity || 0;
+        const currentQty = Number(item.quantity) || 0;
         const newQty = Math.max(1, currentQty + change);
         return { ...item, quantity: newQty };
       }
@@ -558,7 +563,7 @@ const handleSubmit = async () => {
           ...basePayload,
           consumables: consumableData.items.map(item => ({
             type: item.type === 'AUTRE' ? item.customType || 'Autre' : item.type,
-            quantity: item.quantity
+            quantity: Number(item.quantity) || 0
           })),
           terminal_type_id: consumableTerminalData.terminal_type_id,
           tpe_seriel_number: consumableTerminalData.serialNumber || undefined

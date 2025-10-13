@@ -1,4 +1,3 @@
-import ZoomWrapper from "@/components/zoomwraper"
 import { SidebarProvider } from "@/providers/SidebarContext"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

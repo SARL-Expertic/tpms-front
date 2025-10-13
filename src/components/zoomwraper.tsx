@@ -5,7 +5,12 @@ import { ReactNode } from "react";
 
 export default function ZoomWrapper({ children }: { children: ReactNode }) {
   useEffect(() => {
-    document.body.style.zoom = "80%";
+    const previousZoom = document.body.style.zoom;
+    document.body.style.zoom = "100%";
+
+    return () => {
+      document.body.style.zoom = previousZoom;
+    };
   }, []);
 
   return <>{children}</>;
