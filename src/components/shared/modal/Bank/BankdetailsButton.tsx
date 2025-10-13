@@ -29,7 +29,6 @@ type TpeBrand = {
   id: number;
   name: string;
   models: TpeModel[];
-  isFirstInGroup?: boolean; // Mark if this is the first terminal type in the manufacturer group
 };
 
 type AvailableTPEBrand = {
@@ -59,24 +58,13 @@ type Bank = {
     updatedAt?: string;
   };
   subaccounts: Subaccount[];
-  tpes: TpeBrand[];
+   tpes: TpeBrand[];
   employees?: { 
     id: number; 
     firstName: string; 
     lastName: string; 
     email: string; 
     phone: string;
-  }[];
-  preferredTerminalTypes?: {
-    id: number;
-    terminalType: {
-      id: number;
-      manufacturer: {
-        id: number;
-        name: string;
-        models: { id: number; name: string; }[];
-      };
-    };
   }[];
 };
 
@@ -109,6 +97,9 @@ export function BankDetailsButton({ bank, onSave }: Props) {
   const [selectedManufacturer, setSelectedManufacturer] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [availableModels, setAvailableModels] = useState<{ id: number; model: string; description?: string; }[]>([]);
+  
+  // Separate state for newly added models (not yet saved)
+  const [newlyAddedModels, setNewlyAddedModels] = useState<TpeBrand[]>([]);
 
 
  
@@ -165,8 +156,9 @@ export function BankDetailsButton({ bank, onSave }: Props) {
         updateData.status = (editedBank.status as "ACTIVE" | "UNACTIVE") || "ACTIVE";
       }
       
-      // Handle TPE changes - now working with individual terminal type IDs
-      const currentTerminalTypeIds = editedBank.tpes.map(tpe => tpe.id);
+      // Handle TPE changes - combine existing edited models + newly added models
+      const allCurrentModels = [...editedBank.tpes, ...newlyAddedModels];
+      const currentTerminalTypeIds = allCurrentModels.map(tpe => tpe.id);
       const originalTerminalTypeIds = originalBank.tpes.map(tpe => tpe.id);
       
       // Find terminal types to remove and add
@@ -175,13 +167,16 @@ export function BankDetailsButton({ bank, onSave }: Props) {
         .filter(id => !originalTerminalTypeIds.includes(id))
         .map(id => ({ id }));
       
-      console.log("� TPE Changes Debug:");
+      console.log("🛠 TPE Changes Debug:");
+      console.log("Existing models (editedBank.tpes):", editedBank.tpes);
+      console.log("Newly added models:", newlyAddedModels);
+      console.log("All current models combined:", allCurrentModels);
       console.log("Current Terminal Type IDs:", currentTerminalTypeIds);
       console.log("Original Terminal Type IDs:", originalTerminalTypeIds);
       console.log("🗑️ Terminal Type IDs to remove:", terminalTypeIdsToRemove);
       console.log("➕ Terminal Type IDs to add:", terminalTypesToAdd);
       
-      // Only send TPE operations if there are changes
+      // Send TPE operations if there are changes (including newly added models)
       if (terminalTypeIdsToRemove.length > 0) {
         updateData.terminalTypeIdsToRemove = terminalTypeIdsToRemove;
       }
@@ -245,29 +240,26 @@ export function BankDetailsButton({ bank, onSave }: Props) {
         updateData.employees = processedEmployees;
       }
       
+      // Check if there are any changes (basic fields, TPE changes, or employee changes)
+      const hasChanges = Object.keys(updateData).length > 0 || newlyAddedModels.length > 0;
+      
       // Only make API call if there are actual changes
-      if (Object.keys(updateData).length > 0) {
+      if (hasChanges) {
+        // Log final payload before API call
+        console.log("📦 Final update payload being sent to API:", updateData);
+        
         // Call API to update bank
         await updatebank(editedBank.id, updateData);
         
-        // Call parent callback
-        onSave(editedBank);
-        setIsEditing(false);
-        setSelectedManufacturer("");
-        
-        // Clear any previous messages and show success
-        setErrorMessage("");
-        setErrors({});
-        setSuccessMessage("Banque mise à jour avec succès!");
-        
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(""), 5000);
-        
         console.log("✅ Bank updated successfully");
+        
+        // Close modal and refresh the page
+        window.location.reload();
       } else {
         // No changes, just close editing mode
         setIsEditing(false);
         setSelectedManufacturer("");
+        setNewlyAddedModels([]); // Clear newly added models
         setSuccessMessage("ℹ️ Aucune modification à enregistrer");
         setTimeout(() => setSuccessMessage(""), 3000);
         console.log("ℹ️ No changes to save");
@@ -353,6 +345,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
     setSelectedManufacturer("");
     setSelectedModel("");
     setAvailableModels([]);
+    setNewlyAddedModels([]); // Clear newly added models on cancel
     setErrors({});
     setSuccessMessage("");
     setErrorMessage("");
@@ -445,24 +438,24 @@ export function BankDetailsButton({ bank, onSave }: Props) {
       return;
     }
 
-    // Check if this specific model already exists
-    const modelExists = editedBank.tpes.some(tpe => tpe.id === selectedModelData.id);
+    // Check if this specific model already exists in both existing and newly added models
+    const allCurrentModels = [...editedBank.tpes, ...newlyAddedModels];
+    const modelExists = allCurrentModels.some(tpe => tpe.id === selectedModelData.id);
     if (modelExists) {
       setErrors(prev => ({...prev, tpe: "Ce modèle existe déjà"}));
       return;
     }
 
-    // Add only the selected model
+    // Add only the selected model to newly added models state
     const newTPE: TpeBrand = {
       id: selectedModelData.id, // The terminal type ID to send to backend
       name: selectedManufacturer, // The manufacturer name
       models: [{ id: selectedModelData.id, name: selectedModelData.model }],
     };
 
-    setEditedBank(prev => ({
-      ...prev,
-      tpes: [...prev.tpes, newTPE]
-    }));
+    setNewlyAddedModels(prev => [...prev, newTPE]);
+
+console.log("newly added models: ", [...newlyAddedModels, newTPE]);
 
     // Reset form
     setSelectedManufacturer("");
@@ -475,10 +468,19 @@ export function BankDetailsButton({ bank, onSave }: Props) {
   };
 
   const removeModel = (terminalTypeId: number) => {
-    setEditedBank(prev => ({
-      ...prev,
-      tpes: prev.tpes.filter(tpe => tpe.id !== terminalTypeId)
-    }));
+    // Check if it's in editedBank.tpes (existing models)
+    const existsInEdited = editedBank.tpes.some(tpe => tpe.id === terminalTypeId);
+    
+    if (existsInEdited) {
+      // Remove from editedBank.tpes
+      setEditedBank(prev => ({
+        ...prev,
+        tpes: prev.tpes.filter(tpe => tpe.id !== terminalTypeId)
+      }));
+    } else {
+      // Remove from newlyAddedModels
+      setNewlyAddedModels(prev => prev.filter(tpe => tpe.id !== terminalTypeId));
+    }
   };
 
   return (
@@ -854,8 +856,9 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                   Terminaux TPE
                   <Badge variant="secondary" className="ml-2">
                     {(() => {
-                      const uniqueManufacturers = new Set(editedBank.tpes?.map(tpe => tpe.name) || []);
-                      const totalModels = editedBank.tpes?.length || 0;
+                      const allCurrentModels = [...editedBank.tpes, ...newlyAddedModels];
+                      const uniqueManufacturers = new Set(allCurrentModels?.map(tpe => tpe.name) || []);
+                      const totalModels = allCurrentModels?.length || 0;
                       return `${uniqueManufacturers.size} marque${uniqueManufacturers.size > 1 ? 's' : ''} • ${totalModels} modèle${totalModels > 1 ? 's' : ''}`;
                     })()}
                   </Badge>
@@ -865,7 +868,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {loadingBrands && editedBank.tpes.length === 0 && (
+                {loadingBrands && editedBank.tpes.length === 0 && newlyAddedModels.length === 0 && (
                   <div className="text-center py-4">
                     <div className="text-sm text-gray-500">Chargement des données TPE...</div>
                   </div>
@@ -910,7 +913,10 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                           </SelectTrigger>
                           <SelectContent>
                             {availableModels
-                              .filter(model => !editedBank.tpes.some(tpe => tpe.id === model.id))
+                              .filter(model => {
+                                const allCurrentModels = [...editedBank.tpes, ...newlyAddedModels];
+                                return !allCurrentModels.some(tpe => tpe.id === model.id);
+                              })
                               .map((model) => (
                               <SelectItem key={model.id} value={model.id.toString()}>
                                 {model.model} {model.description && `(${model.description})`}
@@ -943,14 +949,17 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                   </div>
                 )}
                 
-                {editedBank.tpes.length === 0 ? (
+                {editedBank.tpes.length === 0 && newlyAddedModels.length === 0 ? (
                   <div className="text-center py-8 bg-muted/30 rounded-lg">
                     <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-muted-foreground">Aucune marque TPE</p>
                   </div>
                 ) : (() => {
+                  // Combine existing and newly added models for display
+                  const allCurrentModels = [...editedBank.tpes, ...newlyAddedModels];
+                  
                   // Group TPEs by manufacturer name
-                  const groupedTPEs = editedBank.tpes.reduce((groups: Record<string, typeof editedBank.tpes>, tpe) => {
+                  const groupedTPEs = allCurrentModels.reduce((groups: Record<string, typeof allCurrentModels>, tpe) => {
                     const manufacturerName = tpe.name;
                     if (!groups[manufacturerName]) {
                       groups[manufacturerName] = [];
@@ -978,17 +987,27 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                               Modèles associés
                             </label>
                             <div className="grid gap-2">
-                              {tpes.map((tpe, index) => (
-                                <div  key={tpe.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+                              {tpes.map((tpe, index) => {
+                                // Check if this is a newly added model for different styling
+                                const isNewlyAdded = newlyAddedModels.some(newTpe => newTpe.id === tpe.id);
+                                
+                                return (
+                                <div  key={tpe.id} className={`flex items-center justify-between p-3 rounded-lg border ${isNewlyAdded ? 'bg-green-50 border-green-200' : 'bg-muted/30'}`}>
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3">
-                                  
-                                        <span className="font-medium">{tpe.models[index]?.name || 'N/A'}</span>
-                                   
+                                          {!isNewlyAdded && (
+                                            <span className="font-medium">{tpe.models[index]?.name || 'N/A'}</span>
+                                          )}
+                                      {isNewlyAdded && (<>
+                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                                          Nouveau
+                                        </span>
+                                      
+                                      <span className="font-medium">{tpe.models[0]?.name || 'N/A'}</span>
+                                  </>
+                                   )}
 
-                                      <span className="text-xs font-mono bg-blue-50 text-blue-600 px-2 py-1 rounded">
-                                        ID: {tpe.id}
-                                      </span>
+                                
                                     </div>
                                   </div>
                                   
@@ -1004,7 +1023,8 @@ export function BankDetailsButton({ bank, onSave }: Props) {
                                     </Button>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
