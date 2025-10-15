@@ -20,6 +20,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           minHeight: '100vh'
         }}
       >
+        
         <Topbar />
 
         {children}

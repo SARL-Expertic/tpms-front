@@ -101,7 +101,8 @@ const filteredData = useMemo(() => {
         {/* Always show placeholder text here */}
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent >
+        
         {/* "Tous" will be the first option */}
         <SelectItem value="all">{label} </SelectItem>
 
