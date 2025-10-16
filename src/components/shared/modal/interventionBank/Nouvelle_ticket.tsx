@@ -131,6 +131,7 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
   const [clientsfetch, setclientsfetch] = useState<APIClient[]>([]);
   const [selectedClient, setSelectedClient] = useState<APIClient | null>(null)
+  const [loadingClients, setLoadingClients] = useState(false);
 
 
   const [banks, setBanks] = useState<BankInfo[]>([]);
@@ -187,6 +188,7 @@ useEffect(() => {
 // Separate useEffect to fetch clients when a bank is selected
 useEffect(() => {
   if (selectedBank?.id) {
+    setLoadingClients(true);
     clientfetch(selectedBank.id)
       .then((res) => {
         setclientsfetch(res.data.clients || []);
@@ -194,9 +196,13 @@ useEffect(() => {
       .catch((err) => {
         console.error("Error fetching clients:", err);
         setclientsfetch([]);
+      })
+      .finally(() => {
+        setLoadingClients(false);
       });
   } else {
     setclientsfetch([]);
+    setLoadingClients(false);
   }
 }, [selectedBank?.id]);
 
@@ -225,6 +231,24 @@ const handleSelect = (id: number | string) => {
       setSelectedClient(clientsel)
     }
   }
+
+  // Function to refresh clients list
+  const refreshClients = useCallback(() => {
+    if (selectedBank?.id) {
+      setLoadingClients(true);
+      clientfetch(selectedBank.id)
+        .then((res) => {
+          setclientsfetch(res.data.clients || []);
+        })
+        .catch((err) => {
+          console.error("Error refreshing clients:", err);
+          setclientsfetch([]);
+        })
+        .finally(() => {
+          setLoadingClients(false);
+        });
+    }
+  }, [selectedBank?.id]);
 
 
   const [unblockingData, setUnblockingData] = useState({
@@ -573,6 +597,14 @@ const handleSubmit = async () => {
     
     resetForm();
     setSuccessMessage("✅ Ticket créé avec succès !");
+    
+    // Refresh clients list if a new client was created
+    if (!client.existingClient && selectedBank?.id) {
+      setTimeout(() => {
+        refreshClients();
+      }, 500); // Small delay to ensure the client is saved in the backend
+    }
+    
     // Call onCreate to refresh the table
     if (onCreate) {
       setTimeout(() => onCreate(), 1000); // Delay to show success message
@@ -803,9 +835,13 @@ const handleSubmit = async () => {
       <div className="text-sm text-gray-500 italic">
         Veuillez d'abord sélectionner une banque
       </div>
-    ) : clientsfetch.length === 0 ? (
+    ) : loadingClients ? (
       <div className="text-sm text-gray-500 italic">
         Chargement des clients...
+      </div>
+    ) : clientsfetch.length === 0 ? (
+      <div className="text-sm text-gray-500 italic">
+        Aucun client trouvé pour cette banque
       </div>
     ) : (
       <Select onValueChange={handleSelect}>
