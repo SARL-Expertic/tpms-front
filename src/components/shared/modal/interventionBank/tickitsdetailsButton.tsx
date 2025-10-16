@@ -61,7 +61,6 @@ const statusOptions = [
   "PROBLÈME CLIENT",
   "LIVRÉ",
   "ANNULÉ",
-  "EN ATTENTE D'APPROBATION (MASQUÉ)",
   "MASQUÉ"
 ];
 
