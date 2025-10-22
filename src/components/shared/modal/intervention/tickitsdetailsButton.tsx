@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DynamicModal } from "../Modal";
 import { Ticket } from "@/types/ticket";
 import { FaBoxesStacked } from "react-icons/fa6";
-import { fetchAttachments, downloadAttachment } from "@/app/api/tickets";
+import { fetchBankEmployeeAttachments,downloadBankEmployeeAttachment } from "@/app/api/tickets";
 import { Paperclip, FileText, Download as DownloadIcon } from "lucide-react";
 
 type Props = {
@@ -39,7 +39,7 @@ export function TicketDetailsButton({ ticket }: Props) {
   const loadAttachments = async () => {
     setLoadingAttachments(true);
     try {
-      const response = await fetchAttachments(parseInt(id));
+      const response = await fetchBankEmployeeAttachments(parseInt(id));
       setAttachments(response.data || []);
     } catch (error) {
       console.error("Error fetching attachments:", error);
@@ -52,7 +52,7 @@ export function TicketDetailsButton({ ticket }: Props) {
   // Download an attachment
   const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
     try {
-      const response = await downloadAttachment(parseInt(id), attachmentId);
+      const response = await downloadBankEmployeeAttachment(parseInt(id), attachmentId);
       
       // Create blob from response
       const blob = new Blob([response.data]);

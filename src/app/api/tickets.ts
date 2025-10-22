@@ -453,3 +453,14 @@ export const deleteAttachment = (ticketId: number, attachmentId: number) =>
   api.delete(
     `${ENDPOINTS.ATTACHMENTS}/${ticketId}/attachments/${attachmentId}`
   );
+
+export const fetchBankEmployeeAttachments = (ticketId: number) =>
+  api.get(
+    `${ENDPOINTS.BankUSERATTACHMENTS}/${ticketId}/attachments`
+  );
+  
+export const downloadBankEmployeeAttachment = (ticketId: number, attachmentId: number) =>
+  api.get(
+    `${ENDPOINTS.BankUSERATTACHMENTS}/${ticketId}/attachments/${attachmentId}`,
+    { responseType: "blob" }
+  );

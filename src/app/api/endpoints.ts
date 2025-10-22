@@ -51,4 +51,7 @@ UPLOAD_EXCEL: "/api/account-manager/ticket/excel/upload",
 ATTACHMENTS: "/api/account-manager/ticket",
 
 
+BankUSERATTACHMENTS: "/api/bank-employee/ticket",
+
+
 };
