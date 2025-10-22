@@ -232,8 +232,32 @@ export const CreateNetworkCheckAccountManager = (
 
 export const UpdateNetworkCheckTicket = (
   ticket_id: number,
-  data: ClientBase & { client_id: number; status?: string }
-) => api.put(`${ENDPOINTS.UPDATENETWORKCHECKTICKET}/${ticket_id}`, data);
+  data: ClientBase & { client_id: number; status?: string; files?: File[] }
+) => {
+  if (data.files && data.files.length > 0) {
+    const formData = new FormData();
+    
+    // Add files to FormData
+    data.files.forEach((file) => {
+      formData.append('files[]', file);
+    });
+    
+    // Add other fields to FormData
+    Object.keys(data).forEach((key) => {
+      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+        formData.append(key, String(data[key as keyof typeof data]));
+      }
+    });
+    
+    return api.put(`${ENDPOINTS.UPDATENETWORKCHECKTICKET}/${ticket_id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+  
+  return api.put(`${ENDPOINTS.UPDATENETWORKCHECKTICKET}/${ticket_id}`, data);
+};
 
 
 export const Updateconsoambleticket = (
@@ -243,8 +267,38 @@ export const Updateconsoambleticket = (
     terminal_type_id?: number | null;
     serialNumber?: string;
     status?: string;
+    files?: File[];
   }
-) => api.put(`${ENDPOINTS.UPDATECONSUMABLETICKET}/${ticket_id}`, data);
+) => {
+  if (data.files && data.files.length > 0) {
+    const formData = new FormData();
+    
+    // Add files to FormData
+    data.files.forEach((file) => {
+      formData.append('files[]', file);
+    });
+    
+    // Add other fields to FormData (handle arrays and objects properly)
+    Object.keys(data).forEach((key) => {
+      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+        const value = data[key as keyof typeof data];
+        if (key === 'consumables' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    return api.put(`${ENDPOINTS.UPDATECONSUMABLETICKET}/${ticket_id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+  
+  return api.put(`${ENDPOINTS.UPDATECONSUMABLETICKET}/${ticket_id}`, data);
+};
 
 export const Updateinterventionticket = (
   ticket_id: number,
@@ -252,8 +306,34 @@ export const Updateinterventionticket = (
     terminal_type_id?: number | null;
     tpe_serialNumber?: string;
     problem_description?: string;
+    status?: string;
+    files?: File[];
   }
-) => api.put(`${ENDPOINTS.UPDATEINTERVENTIONTICKET}/${ticket_id}`, data);
+) => {
+  if (data.files && data.files.length > 0) {
+    const formData = new FormData();
+    
+    // Add files to FormData
+    data.files.forEach((file) => {
+      formData.append('files[]', file);
+    });
+    
+    // Add other fields to FormData
+    Object.keys(data).forEach((key) => {
+      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+        formData.append(key, String(data[key as keyof typeof data]));
+      }
+    });
+    
+    return api.put(`${ENDPOINTS.UPDATEINTERVENTIONTICKET}/${ticket_id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+  
+  return api.put(`${ENDPOINTS.UPDATEINTERVENTIONTICKET}/${ticket_id}`, data);
+};
 
 export const Updatedeblockingticket = (
   ticket_id: number,
@@ -261,9 +341,33 @@ export const Updatedeblockingticket = (
     terminal_type_id?: number | null;
     serialNumber?: string;
     status?: string;
-
+    files?: File[];
   }
-) => api.put(`${ENDPOINTS.UPDATEDEBLOCKINGTICKET}/${ticket_id}`, data);
+) => {
+  if (data.files && data.files.length > 0) {
+    const formData = new FormData();
+    
+    // Add files to FormData
+    data.files.forEach((file) => {
+      formData.append('files[]', file);
+    });
+    
+    // Add other fields to FormData
+    Object.keys(data).forEach((key) => {
+      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+        formData.append(key, String(data[key as keyof typeof data]));
+      }
+    });
+    
+    return api.put(`${ENDPOINTS.UPDATEDEBLOCKINGTICKET}/${ticket_id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+  
+  return api.put(`${ENDPOINTS.UPDATEDEBLOCKINGTICKET}/${ticket_id}`, data);
+};
 
 
 
@@ -276,3 +380,28 @@ export const  updateUSERAccountManager  = (data: { firstName?: string; lastName?
 
 export const deletemodel = (id: number) => api.delete(`${ENDPOINTS.TERMINALTYPES}/model/${id}`);
 export const deletemanufacturer = (id: number) => api.delete(`${ENDPOINTS.TERMINALTYPES}/manufacturer/${id}`);
+
+
+export const downloadExcelTemplate = () =>
+  api.get(ENDPOINTS.DOWNLOAD_EXCEL, { responseType: "blob" });
+
+export const uploadExcelFile = (files: File) => {
+  const formData = new FormData();
+  formData.append("file", files);
+
+  return api.post(ENDPOINTS.UPLOAD_EXCEL, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
+
+export const fetchAttachments = (ticketId: number) =>
+  api.get(`${ENDPOINTS.ATTACHMENTS}/${ticketId}/attachments`);
+
+export const downloadAttachment = (ticketId: number, attachmentId: number) =>
+  api.get(
+    `${ENDPOINTS.ATTACHMENTS}/${ticketId}/attachments/${attachmentId}`,
+    { responseType: "blob" }
+  );

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FaInfoCircle, FaBuilding, FaUsers, FaCreditCard, FaEdit, FaSave, FaTimes, FaPlus, FaTrash } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DynamicModal } from "../Modal";
+import { UnsavedChangesDialog } from "../UnsavedChangesDialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,17 +81,36 @@ const statusColorMap: Record<string, string> = {
 
 const statusOptions = ["ACTIVE", "UNACTIVE"];
 
+const cloneBankData = (data: Bank): Bank => ({
+  ...data,
+  currentLocation: data.currentLocation ? { ...data.currentLocation } : undefined,
+  subaccounts: data.subaccounts.map((sub) => ({ ...sub })),
+  tpes: data.tpes.map((tpe) => ({
+    ...tpe,
+    models: tpe.models.map((model) => ({ ...model })),
+  })),
+  employees: data.employees ? data.employees.map((employee) => ({ ...employee })) : undefined,
+});
+
 export function BankDetailsButton({ bank, onSave }: Props) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [editedBank, setEditedBank] = useState<Bank>({ ...bank });
-  const [originalBank, setOriginalBank] = useState<Bank>({ ...bank });
+  const [editedBank, setEditedBank] = useState<Bank>(() => cloneBankData(bank));
+  const [originalBank, setOriginalBank] = useState<Bank>(() => cloneBankData(bank));
   const [activeTab, setActiveTab] = useState("info");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [numberOfModels, setNumberOfModels] = useState<number>(0);
   
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedBank(cloneBankData(bank));
+      setOriginalBank(cloneBankData(bank));
+    }
+  }, [bank, isEditing]);
+
   // TPE selection states
   const [availableTPEBrands, setAvailableTPEBrands] = useState<AvailableTPEBrand[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(false);
@@ -101,15 +121,70 @@ export function BankDetailsButton({ bank, onSave }: Props) {
   // Separate state for newly added models (not yet saved)
   const [newlyAddedModels, setNewlyAddedModels] = useState<TpeBrand[]>([]);
 
-
- 
-  // Update original bank when editing mode is activated
-  useEffect(() => {
-    if (isEditing) {
-      loadTPEBrands();
-      setOriginalBank({ ...bank });
+  const hasUnsavedChanges = useMemo(() => {
+    if (!isEditing) {
+      return false;
     }
-  }, [isEditing, bank]);
+
+    const normalize = (data: Bank) => ({
+      ...data,
+      subaccounts: data.subaccounts.map((sub) => ({ ...sub })),
+      tpes: data.tpes.map((tpe) => ({
+        ...tpe,
+        models: tpe.models.map((model) => ({ ...model })),
+      })),
+    });
+
+    const editedSnapshot = normalize(editedBank);
+    const originalSnapshot = normalize(originalBank);
+
+    return (
+      JSON.stringify(editedSnapshot) !== JSON.stringify(originalSnapshot) ||
+      newlyAddedModels.length > 0
+    );
+  }, [editedBank, originalBank, newlyAddedModels, isEditing]);
+
+  const syncBankState = (source: Bank) => {
+    setEditedBank(cloneBankData(source));
+    setOriginalBank(cloneBankData(source));
+  };
+
+  const resetTransientStates = () => {
+    setErrors({});
+    setSuccessMessage("");
+    setErrorMessage("");
+    setSelectedManufacturer("");
+    setSelectedModel("");
+    setAvailableModels([]);
+    setNewlyAddedModels([]);
+  };
+
+  const resetModalState = () => {
+    setShowUnsavedDialog(false);
+    setIsEditing(false);
+    resetTransientStates();
+    syncBankState(bank);
+  };
+
+  const finalizeClose = () => {
+    resetModalState();
+    setIsModalOpen(false);
+  };
+
+  const handleModalOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setIsModalOpen(true);
+      resetModalState();
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    finalizeClose();
+  };
 
   const loadTPEBrands = async () => {
     try {
@@ -124,7 +199,14 @@ export function BankDetailsButton({ bank, onSave }: Props) {
     }
   };
 
-  const handleSave = async () => {
+  const handleStartEditing = () => {
+    syncBankState(bank);
+    resetTransientStates();
+    setIsEditing(true);
+    loadTPEBrands();
+  };
+
+  const handleSave = async (): Promise<boolean> => {
     try {
       setIsLoading(true);
       setErrors({});
@@ -140,7 +222,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
       
       if (Object.keys(newErrors).length > 0) {
         setErrors(newErrors);
-        return;
+        return false;
       }
       
       // Prepare the payload with only changed fields
@@ -254,7 +336,11 @@ export function BankDetailsButton({ bank, onSave }: Props) {
         console.log("✅ Bank updated successfully");
         
         // Close modal and refresh the page
+        setNewlyAddedModels([]);
+        setShowUnsavedDialog(false);
+        console.log("✅ Bank updated successfully");
         window.location.reload();
+        return true;
       } else {
         // No changes, just close editing mode
         setIsEditing(false);
@@ -263,6 +349,7 @@ export function BankDetailsButton({ bank, onSave }: Props) {
         setSuccessMessage("ℹ️ Aucune modification à enregistrer");
         setTimeout(() => setSuccessMessage(""), 3000);
         console.log("ℹ️ No changes to save");
+        return false;
       }
     } catch (error: any) {
       console.error('Error updating bank:', error);
@@ -333,22 +420,35 @@ export function BankDetailsButton({ bank, onSave }: Props) {
         // Clear error message after 8 seconds
         setTimeout(() => setErrorMessage(""), 8000);
       }
+      return false;
     } finally {
       setIsLoading(false);
     }
+
+    return false;
+  };
+
+  const handleConfirmSaveAndClose = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    const saved = await handleSave();
+    if (saved) {
+      setShowUnsavedDialog(false);
+      finalizeClose();
+    }
+  };
+
+  const handleDiscardAndClose = () => {
+    setShowUnsavedDialog(false);
+    finalizeClose();
   };
 
   const handleCancel = () => {
-    setEditedBank({ ...bank });
-    setOriginalBank({ ...bank });
+    setEditedBank(cloneBankData(originalBank));
     setIsEditing(false);
-    setSelectedManufacturer("");
-    setSelectedModel("");
-    setAvailableModels([]);
-    setNewlyAddedModels([]); // Clear newly added models on cancel
-    setErrors({});
-    setSuccessMessage("");
-    setErrorMessage("");
+    resetTransientStates();
   };
 
   const handleChange = (field: keyof Bank, value: any) => {
@@ -484,8 +584,11 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
   };
 
   return (
-    <DynamicModal
-      triggerLabel={
+    <>
+      <DynamicModal
+        open={isModalOpen}
+        onOpenChange={handleModalOpenChange}
+        triggerLabel={
         <Button
           size="sm"
           className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center gap-2"
@@ -494,10 +597,10 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
           Détails
         </Button>
       }
-      title={`Banque: ${bank.name}`}
-      description={`Informations complètes pour la banque #${bank.id}`}
-      cancelLabel="Fermer"
-    >
+        title={`Banque: ${bank.name}`}
+        description={`Informations complètes pour la banque #${bank.id}`}
+        cancelLabel="Fermer"
+      >
       <div className="space-y-6 p-1">
         {/* Edit controls */}
         <div className="flex items-center justify-between">
@@ -507,7 +610,7 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
           </div>
           {!isEditing ? (
             <Button 
-              onClick={() => setIsEditing(true)} 
+              onClick={handleStartEditing} 
               variant="outline" 
               size="sm"
               className="flex items-center gap-2"
@@ -1031,7 +1134,16 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
           </TabsContent>
         </Tabs>
       </div>
-    </DynamicModal>
+      </DynamicModal>
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        onConfirm={handleConfirmSaveAndClose}
+        onDiscard={handleDiscardAndClose}
+        onCancel={() => setShowUnsavedDialog(false)}
+        title="Modifications non enregistrées"
+        description="Vous avez des modifications non enregistrées pour cette banque. Souhaitez-vous les enregistrer avant de fermer ?"
+      />
+    </>
   );
 }
 

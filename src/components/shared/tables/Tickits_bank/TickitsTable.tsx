@@ -1,7 +1,7 @@
 "use client"
 import { DataTable } from "../data-table"
-import { useEffect, useState } from "react"
-import { fetchTickets, fetchTickets_Manager } from "@/app/api/tickets"
+import { useEffect, useState, useRef } from "react"
+import { fetchTickets, fetchTickets_Manager, downloadExcelTemplate, uploadExcelFile } from "@/app/api/tickets"
 import { format } from "date-fns"
 import { filter_Tickets_manager } from "@/constants/tickets/filter_Tickets_manager"
 import { createTickitColumns } from "./columns"
@@ -9,11 +9,28 @@ import CreateTicketButton from "../../modal/interventionBank/Nouvelle_ticket"
 import { CardSkeleton } from "@/components/magic-loaders/card-skeleton"
 import { MagicalSpinner } from "@/components/magic-loaders/magical-spinner"
 import { TableSkeleton } from "@/components/magic-loaders/table-skeleton"
+import { Button } from "@/components/ui/button"
+import { Download, Upload, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function TickitsTable() {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [uploadLoading, setUploadLoading] = useState(false)
+  const [downloadLoading, setDownloadLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Modal state
+  const [showModal, setShowModal] = useState(false)
+  const [modalType, setModalType] = useState<'success' | 'error'>('success')
+  const [modalMessage, setModalMessage] = useState('')
 
   const entofr_Type = (TYPE: string): string => {
     const map: Record<string, string> = {
@@ -100,7 +117,7 @@ export default function TickitsTable() {
             : "",          
         }))
         // Sort by requestDate descending (newest first)
-        const sorted = transformed.sort((a, b) => {
+        const sorted = transformed.sort((a: any, b: any) => {
           const dateA = a.requestDate ? new Date(a.requestDate.split(' ')[0].split('/').reverse().join('-') + 'T' + a.requestDate.split(' ')[1]) : new Date(0);
           const dateB = b.requestDate ? new Date(b.requestDate.split(' ')[0].split('/').reverse().join('-') + 'T' + b.requestDate.split(' ')[1]) : new Date(0);
           return dateB.getTime() - dateA.getTime();
@@ -119,6 +136,73 @@ export default function TickitsTable() {
     fetchAndSetTickets()
   }, [])
 
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setModalType(type)
+    setModalMessage(message)
+    setShowModal(true)
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      setDownloadLoading(true)
+      const response = await downloadExcelTemplate()
+      
+      // Create blob from response
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `template_tickets_${format(new Date(), 'dd-MM-yyyy')}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      showNotification('success', 'Template téléchargé avec succès!')
+    } catch (error) {
+      console.error('Erreur lors du téléchargement du template:', error)
+      showNotification('error', 'Erreur lors du téléchargement du template Excel')
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadLoading(true)
+      await uploadExcelFile(file)
+      
+      // Refresh tickets after successful upload
+      await fetchAndSetTickets()
+      
+      showNotification('success', 'Fichier importé avec succès! Les tickets ont été créés.')
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (error: any) {
+      console.error('Erreur lors de l\'import du fichier:', error)
+      const errorMessage = error?.response?.data?.message || 'Erreur lors de l\'import du fichier Excel'
+      showNotification('error', errorMessage)
+    } finally {
+      setUploadLoading(false)
+    }
+  }
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click()
+  }
+
   return (
     <div className="mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -126,7 +210,45 @@ export default function TickitsTable() {
           bg-clip-text text-transparent">
           Tableau des demandes
         </h1>
-        <CreateTicketButton onCreate={fetchAndSetTickets} />
+        <div className="flex gap-3 items-center">
+          <Button
+            onClick={handleDownloadTemplate}
+            disabled={downloadLoading}
+            variant="outline"
+            className="flex items-center gap-2 hover:bg-green-50 hover:border-green-500 hover:text-green-700"
+          >
+            {downloadLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Télécharger Template
+          </Button>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          
+          <Button
+            onClick={triggerFileInput}
+            disabled={uploadLoading}
+            variant="outline"
+            className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-500 hover:text-blue-700"
+          >
+            {uploadLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Importer Excel
+          </Button>
+          
+          <CreateTicketButton onCreate={fetchAndSetTickets} />
+        </div>
       </div>
       
       {loading ? (
@@ -157,6 +279,45 @@ export default function TickitsTable() {
           filters={filter_Tickets_manager}
         />
       )}
+
+      {/* Notification Modal */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {modalType === 'success' ? (
+                <>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                    <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  </div>
+                  <span className="text-green-700">Succès</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                    <XCircle className="h-6 w-6 text-red-600" />
+                  </div>
+                  <span className="text-red-700">Erreur</span>
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-base">
+              {modalMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4">
+            <Button
+              onClick={() => setShowModal(false)}
+              className={modalType === 'success' 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-red-600 hover:bg-red-700'
+              }
+            >
+              Fermer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -388,8 +388,6 @@ export default function TPESTable() {
                             <tr>
                               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">ID</th>
                               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Modèle</th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">N° Série</th>
-                              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Statut</th>
                               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Mis à jour</th>
                               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-300">Actions</th>
                             </tr>
@@ -412,14 +410,7 @@ export default function TPESTable() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
-                                  {tpe.serialNumber}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <Badge className={getStatusColor(tpe.status)}>
-                                    {tpe.status}
-                                  </Badge>
-                                </td>
+
                                 <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                                   {tpe.updatedAt || "-"}
                                 </td>

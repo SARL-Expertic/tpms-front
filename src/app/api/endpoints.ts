@@ -40,6 +40,15 @@ export const ENDPOINTS = {
   UPDATECONSUMABLETICKET: "/api/account-manager/ticket/consumable",
   UPDATEDEBLOCKINGTICKET: "/api/account-manager/ticket/deblocking-order",
 
-USER_ME: "/auth/me"
+USER_ME: "/auth/me",
+
+
+
+DOWNLOAD_EXCEL: "/api/account-manager/ticket/excel/template",
+UPLOAD_EXCEL: "/api/account-manager/ticket/excel/upload",
+
+
+ATTACHMENTS: "/api/account-manager/ticket",
+
 
 };

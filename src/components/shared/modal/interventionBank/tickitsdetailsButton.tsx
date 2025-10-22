@@ -34,8 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket, Updateinterventionticket, Updatedeblockingticket, fetchClients, clientfetch } from "@/app/api/tickets";
+import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket, Updateinterventionticket, Updatedeblockingticket, fetchClients, clientfetch, fetchAttachments, downloadAttachment } from "@/app/api/tickets";
 import { wilayas } from "@/constants/algeria/wilayas";
+import { Paperclip, Trash2, Upload, FileText, Download as DownloadIcon } from "lucide-react";
 
 type Props = {
   ticket: Ticket;
@@ -133,6 +134,12 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const [useExistingClient, setUseExistingClient] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
   const [selectedWilaya, setSelectedWilaya] = useState<any>(null);
+  
+  // Attachment states
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetModalState = useCallback(() => {
     clearOverlayTimeout();
@@ -151,6 +158,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     setSelectedWilaya(ticket.client?.location?.wilaya || null);
     setIsLoading(false);
     setIsLookingUpSN(false);
+    setNewFiles([]);
   }, [clearCloseTimeout, clearOverlayTimeout, ticket]);
 
   const forceCloseModal = useCallback(() => {
@@ -161,8 +169,11 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
 
   const hasUnsavedChanges = useMemo(() => {
     if (!originalTicketData) return false;
-    return JSON.stringify(editedTicket) !== JSON.stringify(originalTicketData);
-  }, [editedTicket, originalTicketData]);
+    // Check if ticket data changed OR files were added
+    const ticketChanged = JSON.stringify(editedTicket) !== JSON.stringify(originalTicketData);
+    const filesAdded = newFiles.length > 0;
+    return ticketChanged || filesAdded;
+  }, [editedTicket, originalTicketData, newFiles]);
 
   const handleModalOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -222,6 +233,20 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       console.error("Error fetching clients for bank:", ticket.bank.id, error);
       // Fallback if API doesn't exist yet or fails
       setAvailableClients([]);
+    }
+  };
+
+  // Fetch attachments for the ticket
+  const loadAttachments = async () => {
+    setLoadingAttachments(true);
+    try {
+      const response = await fetchAttachments(parseInt(ticket.id));
+      setAttachments(response.data || []);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      setAttachments([]);
+    } finally {
+      setLoadingAttachments(false);
     }
   };
 
@@ -379,6 +404,56 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     }
   }, [isEditing, editedTicket.type]);
 
+  // Load attachments when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      loadAttachments();
+    }
+  }, [isModalOpen]);
+
+  // Handle file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setNewFiles(prev => [...prev, ...fileArray]);
+    }
+    // Reset input value to allow selecting the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove a newly added file
+  const handleRemoveNewFile = (index: number) => {
+    setNewFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Download an attachment
+  const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const response = await downloadAttachment(parseInt(ticket.id), attachmentId);
+      
+      // Create blob from response
+      const blob = new Blob([response.data]);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+      showOverlayMessage('Erreur lors du téléchargement du fichier', 2000);
+    }
+  };
+
   // Function to handle the GET request
   const handleGetRequest = async () => {
     setIsLoading(true);
@@ -489,8 +564,12 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     try {
       const changedFields = getChangedFields();
       
-      // If no changes, don't make API call
-      if (Object.keys(changedFields).length === 0) {
+      // Check if there are changes OR files to upload
+      const hasChanges = Object.keys(changedFields).length > 0;
+      const hasFiles = newFiles.length > 0;
+      
+      // If no changes and no files, don't make API call
+      if (!hasChanges && !hasFiles) {
         showOverlayMessage("Aucune modification détectée", 1500);
         setIsEditing(false);
         return;
@@ -501,6 +580,11 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         bank_id: editedTicket.bank ? editedTicket.bank.id : null,
         ...changedFields
       };
+
+      // Add files if any were selected
+      if (newFiles.length > 0) {
+        baseData.files = newFiles;
+      }
 
       // Handle client data based on ticket type and client selection
       if (type === "DÉBLOCAGE") {
@@ -517,6 +601,14 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         baseData.new_client = false;
         baseData.client_id = parseInt(editedTicket.client?.id?.toString() || "0");
       }
+
+      // Log the data being sent (for debugging)
+      console.log("📤 Sending update with:", {
+        hasChanges,
+        hasFiles,
+        filesCount: newFiles.length,
+        baseData: { ...baseData, files: baseData.files ? `${baseData.files.length} files` : 'none' }
+      });
 
       // Handle different ticket types
       if (type === "CHOIX DE RÉSEAU") {
@@ -535,6 +627,11 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         onSave(editedTicket);
         showOverlayMessage("Ticket mis à jour avec succès !");
       }
+      
+      // Clear new files after successful save
+      setNewFiles([]);
+      // Reload attachments to show newly uploaded ones
+      await loadAttachments();
       
       setIsEditing(false);
       if (!options?.closeAfter) {
@@ -1669,6 +1766,122 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
               {note || "Aucune note"}
             </p>
           )}
+        </div>
+
+        {/* Attachments Section */}
+        <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
+              <Paperclip className="text-indigo-600 dark:text-indigo-400 h-5 w-5" />
+            </div>
+            Pièces jointes
+            {loadingAttachments && (
+              <div className="ml-2 animate-spin h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+            )}
+          </h3>
+          
+          <div className="ml-12 space-y-4">
+            {/* Existing Attachments */}
+            {attachments.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Fichiers existants:</p>
+                <div className="grid gap-2">
+                  {attachments.map((attachment: any) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileText className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {attachment.filename || attachment.name || 'Fichier sans nom'}
+                          </p>
+                          {attachment.size && (
+                            <p className="text-xs text-muted-foreground">
+                              {(attachment.size / 1024).toFixed(2)} KB
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadAttachment(attachment.id, attachment.filename || attachment.name || 'download')}
+                        className="flex items-center gap-2 hover:bg-indigo-100"
+                      >
+                        <DownloadIcon className="h-4 w-4" />
+                        Télécharger
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              !loadingAttachments && (
+                <p className="text-sm text-muted-foreground">Aucune pièce jointe</p>
+              )
+            )}
+
+            {/* Upload New Files (only in edit mode) */}
+            {isEditing && (
+              <div className="space-y-3 pt-3 border-t">
+                <p className="text-sm text-muted-foreground">Ajouter des fichiers:</p>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.xlsx,.xls"
+                />
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 hover:bg-indigo-50"
+                >
+                  <Upload className="h-4 w-4" />
+                  Sélectionner des fichiers
+                </Button>
+
+                {/* Display newly selected files */}
+                {newFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Fichiers à envoyer ({newFiles.length}):</p>
+                    <div className="grid gap-2">
+                      {newFiles.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <FileText className="h-5 w-5 text-green-600 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024).toFixed(2)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveNewFile(index)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </DynamicModal>

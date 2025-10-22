@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DynamicModal } from "../Modal";
+import { UnsavedChangesDialog } from "../UnsavedChangesDialog";
 import { FaInfoCircle, FaBox, FaEdit, FaSave, FaTimes } from "react-icons/fa";
 import { Input } from "@/components/ui/input";
 import { updateconsumableitem } from "@/app/api/tickets";
@@ -20,23 +21,86 @@ type Props = {
 };
 
 export function ConsumableDetailsButton({ consumable, onSave }: Props) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [editedConsumable, setEditedConsumable] = useState<Consumable>({ ...consumable });
+  const [originalConsumable, setOriginalConsumable] = useState<Consumable>({ ...consumable });
 
-  const handleSave = async () => {
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedConsumable({ ...consumable });
+      setOriginalConsumable({ ...consumable });
+    }
+  }, [consumable, isEditing]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!isEditing) {
+      return false;
+    }
+
+    return (
+      editedConsumable.type !== originalConsumable.type ||
+      editedConsumable.quantity !== originalConsumable.quantity
+    );
+  }, [editedConsumable, originalConsumable, isEditing]);
+
+  const resetModalState = () => {
+    setShowUnsavedDialog(false);
+    setIsEditing(false);
+    setIsLoading(false);
+    setEditedConsumable({ ...consumable });
+    setOriginalConsumable({ ...consumable });
+  };
+
+  const finalizeClose = () => {
+    resetModalState();
+    setIsModalOpen(false);
+  };
+
+  const handleModalOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setIsModalOpen(true);
+      resetModalState();
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    finalizeClose();
+  };
+
+  const handleStartEditing = () => {
+    setOriginalConsumable({ ...consumable });
+    setEditedConsumable({ ...consumable });
+    setIsEditing(true);
+  };
+
+  const handleSave = async (): Promise<boolean> => {
     try {
+      setIsLoading(true);
       await updateconsumableitem(editedConsumable.id, editedConsumable.quantity, editedConsumable.type);
-      onSave(); // Call onSave to trigger table refresh
+      onSave();
+      setOriginalConsumable({ ...editedConsumable });
       setIsEditing(false);
+      setShowUnsavedDialog(false);
+      return true;
     } catch (error) {
       console.error('Error updating consumable:', error);
-      // You might want to show an error message to the user here
+      return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setEditedConsumable({ ...consumable });
+    setEditedConsumable({ ...originalConsumable });
     setIsEditing(false);
+    setShowUnsavedDialog(false);
   };
 
   const handleChange = (field: keyof Consumable, value: string | number) => {
@@ -46,9 +110,28 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
     }));
   };
 
+  const handleConfirmSaveAndClose = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    const saved = await handleSave();
+    if (saved) {
+      finalizeClose();
+    }
+  };
+
+  const handleDiscardAndClose = () => {
+    setShowUnsavedDialog(false);
+    finalizeClose();
+  };
+
   return (
-    <DynamicModal
-      triggerLabel={
+    <>
+      <DynamicModal
+        open={isModalOpen}
+        onOpenChange={handleModalOpenChange}
+        triggerLabel={
         <Button
           size="sm"
           className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center gap-2"
@@ -66,7 +149,7 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
         <div className="flex justify-end gap-2 border-b pb-2">
           {!isEditing ? (
             <Button 
-              onClick={() => setIsEditing(true)} 
+              onClick={handleStartEditing} 
               variant="outline" 
               size="sm"
               className="flex items-center gap-2"
@@ -79,10 +162,11 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
               <Button 
                 onClick={handleSave} 
                 size="sm"
+                disabled={isLoading}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
               >
                 <FaSave />
-                Enregistrer
+                {isLoading ? "Enregistrement..." : "Enregistrer"}
               </Button>
               <Button 
                 onClick={handleCancel} 
@@ -108,7 +192,7 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
                 placeholder="Type de consommable"
               />
             ) : (
-              consumable.type
+              editedConsumable.type
             )}
           </h2>
           
@@ -131,13 +215,22 @@ export function ConsumableDetailsButton({ consumable, onSave }: Props) {
                 />
               ) : (
                 <div className="font-semibold p-2 bg-gray-100 dark:bg-gray-800 rounded">
-                  {consumable.quantity}
+                  {editedConsumable.quantity}
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
-    </DynamicModal>
+      </DynamicModal>
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        onConfirm={handleConfirmSaveAndClose}
+        onDiscard={handleDiscardAndClose}
+        onCancel={() => setShowUnsavedDialog(false)}
+        title="Modifications non enregistrées"
+        description="Des modifications non enregistrées existent pour ce consommable. Voulez-vous les enregistrer avant de fermer ?"
+      />
+    </>
   );
 }
