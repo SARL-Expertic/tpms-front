@@ -593,11 +593,15 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         return;
       }
 
-      // Always include required fields for API
+      // Start with only changed fields
       const baseData: any = {
-        bank_id: editedTicket.bank ? editedTicket.bank.id : null,
         ...changedFields
       };
+
+      // Only include bank_id if it has changed
+      if (editedTicket.bank?.id !== originalTicketData.bank?.id) {
+        baseData.bank_id = editedTicket.bank ? editedTicket.bank.id : null;
+      }
 
       // Add files if any were selected
       if (newFiles.length > 0) {
@@ -607,17 +611,26 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       // Handle client data based on ticket type and client selection
       if (type === "DÉBLOCAGE") {
         if (useExistingClient && selectedExistingClient) {
-          // Existing client - send client_id and set new_client to false
-          baseData.new_client = false;
-          baseData.client_id = selectedExistingClient.id;
+          // Existing client - send client_id and set new_client to false only if changed
+          const clientChanged = selectedExistingClient.id !== originalTicketData.client?.id;
+          if (clientChanged) {
+            baseData.new_client = false;
+            baseData.client_id = selectedExistingClient.id;
+          }
         } else {
-          // New client - set new_client to true and don't send client_id
-          baseData.new_client = true;
+          // New client - set new_client to true only if client data changed
+          const clientChanged = editedTicket.client?.name !== originalTicketData.client?.name ||
+                                editedTicket.client?.phoneNumber !== originalTicketData.client?.phoneNumber;
+          if (clientChanged) {
+            baseData.new_client = true;
+          }
         }
       } else {
-        // For other ticket types, use existing logic
-        baseData.new_client = false;
-        baseData.client_id = parseInt(editedTicket.client?.id?.toString() || "0");
+        // For other ticket types, only send client_id if it changed
+        if (editedTicket.client?.id !== originalTicketData.client?.id) {
+          baseData.new_client = false;
+          baseData.client_id = parseInt(editedTicket.client?.id?.toString() || "0");
+        }
       }
 
       // Log the data being sent (for debugging)
