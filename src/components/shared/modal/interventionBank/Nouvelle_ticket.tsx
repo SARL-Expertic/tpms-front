@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { DynamicModal } from '../Modal'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { FaExchangeAlt, FaTrash, FaNetworkWired, FaUnlock, FaTools, FaBoxOpen } from 'react-icons/fa'
+import { FaExchangeAlt, FaTrash, FaNetworkWired, FaUnlock, FaTools, FaBoxOpen, FaCheckCircle } from 'react-icons/fa'
 import { MdOutlineUploadFile } from 'react-icons/md'
 import { wilayas } from "@/constants/algeria/wilayas"
 import { FaPlus, FaInfoCircle } from 'react-icons/fa';
@@ -62,8 +62,11 @@ type NetworkCheckData = {
 
 type UnblockingData = {
   blockedReason: string;
-  previousAttempts: string;
-  requiredAction: string;
+  previousAttempts?: string;
+  requiredAction?: string;
+  notes?: string;
+  selectedBrand?: string;
+  selectedModel?: string;
   terminal_types: {
     terminal_type_id: number;
     quantity: number;
@@ -123,8 +126,49 @@ type ConsumableType = {
   quantity: number;
 };
 
+const createInitialClient = (): Client => ({
+  id: 0,
+  clientName: '',
+  brand: '',
+  phoneNumber: '',
+  mobileNumber: '',
+  location: { wilaya: '', daira: '', address: '' },
+  existingClient: false,
+});
+
+const createInitialUnblockingData = (): UnblockingData => ({
+  blockedReason: '',
+  previousAttempts: '',
+  requiredAction: '',
+  notes: '',
+  selectedBrand: '',
+  selectedModel: '',
+  terminal_types: [],
+});
+
+const createInitialInterventionData = (): InterventionData => ({
+  problemCategory: '',
+  problemType: '',
+  tpeBrand: '',
+  terminal_type_id: null,
+  serialNumber: '',
+});
+
+const createInitialConsumableData = (): ConsumableData => ({
+  items: [],
+});
+
+const createInitialConsumableTerminalData = () => ({
+  selectedBrand: '',
+  selectedModel: '',
+  terminal_type_id: null as number | null,
+  serialNumber: '',
+});
+
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
   const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('intervention');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
@@ -139,15 +183,7 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
   
 // Fix the wilaya selection state handling
-const [client, setClient] = useState<Client>({
-  id: 0,
-  clientName: '',
-  brand: '',
-  phoneNumber: '',
-  mobileNumber: '',
-  location: { wilaya: '', daira: '', address: '' },
-  existingClient: false, // New field to track if the client is existing
-});
+const [client, setClient] = useState<Client>(() => createInitialClient());
 
 // Update the wilaya selection handler
 const handleWilayaChange = (value: string) => {
@@ -251,34 +287,15 @@ const handleSelect = (id: number | string) => {
   }, [selectedBank?.id]);
 
 
-  const [unblockingData, setUnblockingData] = useState({
-    notes: "",
-    blockedReason: "",
-    terminal_types: [] as { terminal_type_id: number; quantity: number }[],   // changed from tpes to terminal_types
-    selectedBrand: "",
-    selectedModel: "",
-  });
+  const [unblockingData, setUnblockingData] = useState(() => createInitialUnblockingData());
   
 
- const [interventionData, setInterventionData] = useState<InterventionData>({
-          problemCategory: '',
-          problemType: '',
-          tpeBrand: '',
-          terminal_type_id: null,
-          serialNumber: '' // Optional serial number
-});
+ const [interventionData, setInterventionData] = useState<InterventionData>(() => createInitialInterventionData());
 
-const [consumableData, setConsumableData] = useState<ConsumableData>({
-  items: [],
-});
+const [consumableData, setConsumableData] = useState<ConsumableData>(() => createInitialConsumableData());
 
 // Add terminal selection state for consumable
-const [consumableTerminalData, setConsumableTerminalData] = useState({
-  selectedBrand: '',
-  selectedModel: '',
-  terminal_type_id: null as number | null,
-  serialNumber: '', // Optional serial number
-});
+const [consumableTerminalData, setConsumableTerminalData] = useState(() => createInitialConsumableTerminalData());
 
 const handleAddConsumable = () => {
   setConsumableData(prev => ({
@@ -335,11 +352,13 @@ const handleQuantityChange = (index: number, change: number) => {
 // Duplicate function removed to fix redeclaration error.
 
 
+
   const [photo, setPhoto] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState<string>('')
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [tpes, setTpes] = useState<FlatTPE[]>([]);
@@ -430,8 +449,6 @@ const validateForm = (): boolean => {
    if( !client.brand) newErrors.brand = "l'enseigne est obligatoire.";
   if( !client.location.address) newErrors.address = "L'adresse est obligatoire.";
      }
-  if (!description) newErrors.description = "La description est obligatoire.";
-  
   // Tab-specific validation
   switch (activeTab) {
     case 'network':
@@ -473,9 +490,6 @@ const validateForm = (): boolean => {
           if (!item.quantity || item.quantity < 1) {
             newErrors[`item-${index}-quantity`] = "La quantité doit être d'au moins 1.";
           }
-          if (item.type === 'AUTRE' && !item.customType) {
-            newErrors[`item-${index}-customType`] = "Veuillez préciser le type.";
-          }
         });
       }
       // Remove terminal validation since it's auto-selected
@@ -494,58 +508,55 @@ const validateForm = (): boolean => {
 
 
 // Reset form state
-const resetForm = () => {
-  setClient({
-    id: 0,
-    clientName: '',
-    brand: '',
-    phoneNumber: '',
-    mobileNumber: '',
-    location: {
-      wilaya: '',
-      daira: '',
-      address: ''
-    },
-    existingClient: false
-  })
-  setUnblockingData({
-    blockedReason: '',
-    notes: '',
-    terminal_types: [],
-    selectedBrand: '',
-    selectedModel: ''
-  })
-  setInterventionData({
-    problemCategory: '',
-    problemType: '',
-    tpeBrand: '',
-    terminal_type_id: null,
-    serialNumber: ''
-  })
-  setConsumableData({
-    items: []
-  })
-  setConsumableTerminalData({
-    selectedBrand: '',
-    selectedModel: '',
-    terminal_type_id: null,
-    serialNumber: ''
-  })
-  setPhoto(null)
-  setPreview(null)
-  setErrors({}) // This will clear all error messages including stock errors
-  setSuccessMessage('')
-  setIsSubmitting(false)
-}
+const resetForm = useCallback(() => {
+  if (successTimeoutRef.current) {
+    clearTimeout(successTimeoutRef.current)
+    successTimeoutRef.current = null
+  }
+  setShowSuccessOverlay(false)
+  setActiveTab('intervention');
+  setClient(createInitialClient());
+  setUnblockingData(createInitialUnblockingData());
+  setInterventionData(createInitialInterventionData());
+  setConsumableData(createInitialConsumableData());
+  setConsumableTerminalData(createInitialConsumableTerminalData());
+  setSelectedBank(null);
+  setSelectedClient(null);
+  setclientsfetch([]);
+  setDescription('');
+  setPhone('');
+  setPhoto(null);
+  setPreview(null);
+  setErrors({});
+  setSuccessMessage('');
+  setIsSubmitting(false);
+  setLoadingClients(false);
+}, []);
+
+const handleModalOpenChange = useCallback(
+  (open: boolean) => {
+    setIsModalOpen(open);
+    if (open) {
+      setErrors({});
+      setSuccessMessage('');
+      setShowSuccessOverlay(false)
+    } else {
+      resetForm();
+    }
+  },
+  [resetForm]
+);
 
 // Handle Submit
 const handleSubmit = async () => {
-  if (!validateForm() || isSubmitting) return false;
-  
+  if (isSubmitting) return false;
+
+  const isValid = validateForm();
+  if (!isValid) return false;
+
   setIsSubmitting(true);
-  
+
   try {
-  
     const basePayload = {
       bank_id: selectedBank ? selectedBank.id : null,
       new_client: !client.existingClient,
@@ -556,59 +567,67 @@ const handleSubmit = async () => {
       client_wilaya: client.location.wilaya,
       client_daira: client.location.daira,
       client_address: client.location.address,
-      notes: description,
+      notes: description || '',
     };
-    
+
     switch (activeTab) {
       case 'network':
         await CreateNetworkCheckAccountManager(basePayload);
         break;
-        
+
       case 'intervention':
         await CreateinterventionAccountManager({
           ...basePayload,
           terminal_type_id: interventionData.terminal_type_id!,
           problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`,
-          tpe_seriel_number: interventionData.serialNumber || undefined
+          tpe_seriel_number: interventionData.serialNumber || undefined,
         });
         break;
-        
+
       case 'unblocking':
         await CreateDeblockingAccountManager({
           bank_id: selectedBank ? selectedBank.id : null,
-          notes: description,
+          notes: description || '',
           deblockingType: unblockingData.blockedReason,
-          terminal_types: unblockingData.terminal_types, // Send as array of objects with terminal_type_id
+          terminal_types: unblockingData.terminal_types,
         });
         break;
-        
+
       case 'consumable':
         await CreateconsumableAccountManager({
           ...basePayload,
-          consumables: consumableData.items.map(item => ({
-            type: item.type === 'AUTRE' ? item.customType || 'Autre' : item.type,
-            quantity: Number(item.quantity) || 0
+          consumables: consumableData.items.map((item) => ({
+            type: item.type,
+            quantity: Number(item.quantity) || 0,
           })),
           terminal_type_id: consumableTerminalData.terminal_type_id,
-          tpe_seriel_number: consumableTerminalData.serialNumber || undefined
+          tpe_seriel_number: consumableTerminalData.serialNumber || undefined,
         });
         break;
     }
-    
-    resetForm();
-    setSuccessMessage("✅ Ticket créé avec succès !");
-    
-    // Refresh clients list if a new client was created
+
+    setErrors({});
+    setSuccessMessage("Ticket créé avec succès !");
+    setShowSuccessOverlay(true);
+
     if (!client.existingClient && selectedBank?.id) {
       setTimeout(() => {
         refreshClients();
-      }, 500); // Small delay to ensure the client is saved in the backend
+      }, 500);
     }
-    
-    // Call onCreate to refresh the table
+
     if (onCreate) {
-      setTimeout(() => onCreate(), 1000); // Delay to show success message
+      setTimeout(() => onCreate(), 800);
     }
+
+    setIsSubmitting(false);
+
+    successTimeoutRef.current = setTimeout(() => {
+      handleModalOpenChange(false);
+      setShowSuccessOverlay(false);
+      successTimeoutRef.current = null;
+    }, 1200);
+
     return false;
   } catch (error: any) {
     console.error(error);
@@ -673,13 +692,32 @@ const handleSubmit = async () => {
   return (
     <DynamicModal
       triggerLabel="Nouvelle demande"
-      title="Nouveau Demande"
+      title="Nouvelle Demande"
       description="Signalez un problème ou demandez une maintenance."
       onConfirm={handleSubmit}
-      onClose={resetForm}
       confirmLabel={isSubmitting ? "Création en cours..." : "Soumettre le ticket"}
+      open={isModalOpen}
+      onOpenChange={handleModalOpenChange}
+      disableCancel={isSubmitting}
     >
       <div className="space-y-6 relative">
+        {showSuccessOverlay && successMessage && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/85 backdrop-blur-md">
+            <div className="relative max-w-md space-y-4 rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100 p-8 text-center shadow-xl">
+              <div className="pointer-events-none absolute -top-10 right-0 h-24 w-24 rounded-full bg-emerald-200/40 blur-3xl" />
+              <div className="pointer-events-none absolute bottom-0 -left-4 h-20 w-20 rounded-full bg-teal-200/40 blur-3xl" />
+              <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-black/10">
+                <FaCheckCircle className="h-10 w-10" />
+              </div>
+              <div className="relative space-y-2">
+                <p className="text-xl font-semibold text-emerald-800">{successMessage}</p>
+                <p className="text-sm leading-relaxed text-emerald-700">
+                  Votre demande a été transmise. Nous prenons le relais immédiatement — cette fenêtre va se fermer automatiquement.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Loading Overlay */}
         {isSubmitting && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
@@ -688,12 +726,6 @@ const handleSubmit = async () => {
               <div className="text-lg font-semibold text-blue-700">Création du ticket en cours...</div>
               <div className="text-sm text-gray-600">Veuillez patienter, ne fermez pas cette fenêtre</div>
             </div>
-          </div>
-        )}
-        
-        {successMessage && (
-          <div className="bg-green-100 text-green-700 px-4 py-3 rounded-md">
-            {successMessage}
           </div>
         )}
         
@@ -1484,28 +1516,33 @@ const handleSubmit = async () => {
                         <SelectValue placeholder="Sélectionnez le type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {consumableTypes.map((consumableType) => (
-                          <SelectItem 
-                            key={consumableType.id} 
-                            value={consumableType.type}
-                            disabled={consumableType.quantity === 0}
-                            className={consumableType.quantity === 0 ? 'opacity-50 cursor-not-allowed' : ''}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <span>{consumableType.type}</span>
-                              <span className={`ml-2 text-xs px-2 py-1 rounded ${
-                                consumableType.quantity === 0 
-                                  ? 'bg-red-100 text-red-700' 
-                                  : consumableType.quantity < 5 
-                                    ? 'bg-orange-100 text-orange-700' 
-                                    : 'bg-green-100 text-green-700'
-                              }`}>
-                                Stock: {consumableType.quantity}
-                              </span>
-                            </div>
+                        {consumableTypes.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            Aucun consommable disponible
                           </SelectItem>
-                        ))}
-                        <SelectItem value="AUTRE">Autre</SelectItem>
+                        ) : (
+                          consumableTypes.map((consumableType) => (
+                            <SelectItem 
+                              key={consumableType.id} 
+                              value={consumableType.type}
+                              disabled={consumableType.quantity === 0}
+                              className={consumableType.quantity === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span>{consumableType.type}</span>
+                                <span className={`ml-2 text-xs px-2 py-1 rounded ${
+                                  consumableType.quantity === 0 
+                                    ? 'bg-red-100 text-red-700' 
+                                    : consumableType.quantity < 5 
+                                      ? 'bg-orange-100 text-orange-700' 
+                                      : 'bg-green-100 text-green-700'
+                                }`}>
+                                  Stock: {consumableType.quantity}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   )}
@@ -1562,21 +1599,6 @@ const handleSubmit = async () => {
                   })()}
                 </div>
 
-                {item.type === 'AUTRE' && (
-                  <div className="md:col-span-2 flex flex-col">
-                    <label className="text-sm font-medium mb-2">Précisez le type :</label>
-                    <Input
-                      type="text"
-                      placeholder="Spécifiez le type de consommable"
-                      value={item.customType || ''}
-                      onChange={(e) => handleConsumableItemChange(index, 'customType', e.target.value)}
-                      className="w-full"
-                    />
-                    {errors[`item-${index}-customType`] && (
-                      <p className="text-red-500 text-xs mt-1">{errors[`item-${index}-customType`]}</p>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           ))}
@@ -1608,9 +1630,7 @@ const handleSubmit = async () => {
           <div>
             <p className="text-sm font-medium text-blue-700">Types demandés :</p>
             <p className="text-sm text-blue-900">
-              {Array.from(new Set(consumableData.items.map(item => 
-                item.type === 'AUTRE' ? item.customType : item.type
-              ))).join(', ')}
+              {Array.from(new Set(consumableData.items.map(item => item.type))).join(', ')}
             </p>
           </div>
         </div>

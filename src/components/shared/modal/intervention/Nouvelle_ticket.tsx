@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { DynamicModal } from '../Modal'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { FaExchangeAlt, FaTrash, FaNetworkWired, FaUnlock, FaTools, FaBoxOpen } from 'react-icons/fa'
+import { FaExchangeAlt, FaTrash, FaNetworkWired, FaUnlock, FaTools, FaBoxOpen, FaCheckCircle } from 'react-icons/fa'
 import { MdOutlineUploadFile } from 'react-icons/md'
 import { wilayas } from "@/constants/algeria/wilayas"
 import { FaPlus, FaInfoCircle } from 'react-icons/fa';
@@ -74,6 +74,7 @@ type ConsumableData = {
 
 export default function CreateTicketButton({ onCreate }: { onCreate?: () => void }) {
   const [activeTab, setActiveTab] = useState<'network' | 'unblocking' | 'intervention' | 'consumable'>('intervention');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
@@ -226,7 +227,9 @@ const handleQuantityChange = (index: number, change: number) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successMessage, setSuccessMessage] = useState<string>('')
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const [tpes, setTpes] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<any>(null);
@@ -260,6 +263,14 @@ const handleQuantityChange = (index: number, change: number) => {
       });
   }, []);
   
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [])
+
 
 
 
@@ -283,8 +294,6 @@ const validateForm = (): boolean => {
    if( !client.brand) newErrors.brand = "l'enseigne est obligatoire.";
   if( !client.location.address) newErrors.address = "L'adresse est obligatoire.";
      }
-  if (!description) newErrors.description = "La description est obligatoire.";
-  
   // Tab-specific validation
   switch (activeTab) {
     case 'network':
@@ -359,6 +368,11 @@ const validateForm = (): boolean => {
 
 // Reset form state
 const resetForm = () => {
+  if (successTimeoutRef.current) {
+    clearTimeout(successTimeoutRef.current)
+    successTimeoutRef.current = null
+  }
+  setActiveTab('intervention')
   setClient({
     id: 0,
     clientName: '',
@@ -406,7 +420,23 @@ const resetForm = () => {
   setPreview(null)
   setErrors({})
   setSuccessMessage('')
+  setShowSuccessOverlay(false)
+  setDescription('')
   setIsSubmitting(false)
+}
+
+const handleModalOpenChange = (open: boolean) => {
+  if (!open) {
+    resetForm()
+  } else {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current)
+      successTimeoutRef.current = null
+    }
+    setSuccessMessage('')
+    setShowSuccessOverlay(false)
+  }
+  setIsModalOpen(open)
 }
 
 // Handle Submit
@@ -463,14 +493,17 @@ const handleSubmit = async () => {
         break;
     }
     
-    resetForm();
-    setSuccessMessage("✅ Ticket créé avec succès !");
-    
-    // Call the onCreate callback to refresh the table
+    setSuccessMessage("Ticket créé avec succès !");
+    setShowSuccessOverlay(true);
+
     if (onCreate) {
       onCreate();
     }
-    
+
+    successTimeoutRef.current = setTimeout(() => {
+      setIsModalOpen(false);
+    }, 1200);
+
     return false;
   } catch (error) {
     console.error(error);
@@ -592,10 +625,26 @@ const handleUnblockingModelChange = (modelName: string) => {
       title="Nouveau Demande"
       description="Signalez un problème ou demandez une maintenance."
       onConfirm={handleSubmit}
-      onClose={resetForm}
+      open={isModalOpen}
+      onOpenChange={handleModalOpenChange}
       confirmLabel={isSubmitting ? "Création en cours..." : "Soumettre le ticket"}
     >
       <div className="space-y-6 relative">
+        {showSuccessOverlay && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/90 backdrop-blur-sm">
+            <div className="relative max-w-md space-y-4 rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100 p-8 text-center shadow-xl">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200/50">
+                <FaCheckCircle className="h-10 w-10" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xl font-semibold text-emerald-800">{successMessage}</p>
+                <p className="text-sm text-emerald-700">
+                  Votre demande vient d'être enregistrée. Nous prenons le relais immédiatement — cette fenêtre va se fermer automatiquement.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Loading Overlay */}
         {isSubmitting && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
@@ -607,11 +656,6 @@ const handleUnblockingModelChange = (modelName: string) => {
           </div>
         )}
         
-        {successMessage && (
-          <div className="bg-green-100 text-green-700 px-4 py-3 rounded-md">
-            {successMessage}
-          </div>
-        )}
         {/* Ticket Type Tabs */}
      <h1 className=" font-bold text-red-600">Choisir le type de demande * : </h1>
 

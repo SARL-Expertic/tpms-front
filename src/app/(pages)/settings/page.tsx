@@ -29,7 +29,7 @@ type UserResponse = {
 };
 
 export default function SettingsPage() {
-  const { user } = useAuth(); // ✅ get user from context
+  const { user, setUser } = useAuth(); // ✅ get user from context
   const role_current = user?.role || 'Client'; // Default to 'client' if user or role is undefined
   
   const [userData, setUserData] = useState({
@@ -83,6 +83,18 @@ export default function SettingsPage() {
         setOriginalUserData(originalUserDataObj);
         
         setBankInfo(userData.bank);
+
+        const normalizedUser = {
+          id: String(userData.user.id),
+          name: `${userDataObj.firstName} ${userDataObj.lastName}`.trim(),
+          role: userData.user.role,
+          email: userDataObj.email,
+          phone: userDataObj.phone,
+          firstName: userDataObj.firstName,
+          lastName: userDataObj.lastName,
+        };
+
+        setUser(normalizedUser);
       } catch (err) {
         console.error('Error fetching user data:', err);
         setError('Erreur lors du chargement des données utilisateur');
@@ -92,7 +104,7 @@ export default function SettingsPage() {
     };
 
     fetchUserData();
-  }, []);
+  }, [setUser]);
 
   // Helper function to determine which update function to use based on role
   const getUpdateFunction = () => {
@@ -131,9 +143,27 @@ export default function SettingsPage() {
       const updateFunction = getUpdateFunction();
       await updateFunction(updatePayload);
       setSuccessMessage('Profil mis à jour avec succès!');
+
+      if (user) {
+        const updatedUser = {
+          ...user,
+          name: `${userData.firstName} ${userData.lastName}`.trim(),
+          email: userData.email,
+          phone: userData.phone,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+        };
+
+        setUser(updatedUser);
+      }
       
       // Update original data to reflect the changes
-      setOriginalUserData(userData);
+      setOriginalUserData({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        phoneNumber: userData.phone,
+      });
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);

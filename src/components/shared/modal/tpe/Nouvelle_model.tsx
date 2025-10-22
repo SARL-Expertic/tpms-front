@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FaCog, FaIndustry } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ type TPEBrand = {
   manufacturer: string;
   manufacturer_id: number;
 
-  models: { id: number; model: string; description?: string; }[];
+  models: { id: number; model: string; description?: string }[];
 };
 
 export default function NewModelModal({ onSuccess }: Props) {
@@ -33,28 +33,35 @@ export default function NewModelModal({ onSuccess }: Props) {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load available brands/manufacturers
-  useEffect(() => {
-    async function loadBrands() {
-      try {
-        setLoadingBrands(true);
-        const response = await terminaltypesfetch();
-        setAvailableBrands(response.data || []);
-      } catch (err) {
-        console.error("Error fetching brands:", err);
-        setErrors({ general: "Erreur lors du chargement des marques" });
-      } finally {
-        setLoadingBrands(false);
-      }
+  const loadBrands = useCallback(async () => {
+    try {
+      setLoadingBrands(true);
+      setErrors(prev => {
+        const { general, ...rest } = prev;
+        return rest;
+      });
+      const response = await terminaltypesfetch();
+      setAvailableBrands(response.data || []);
+    } catch (err) {
+      console.error("Error fetching brands:", err);
+      setErrors(prev => ({ ...prev, general: "Erreur lors du chargement des marques" }));
+    } finally {
+      setLoadingBrands(false);
     }
-    loadBrands();
   }, []);
 
-  // Get manufacturer ID from manufacturer name using the API data
-  const getManufacturerId = (manufacturerName: string): number | null => {
-    const selectedBrand = availableBrands.find(brand => brand.manufacturer === manufacturerName);
-    return selectedBrand ? selectedBrand.manufacturer_id : null;
-  };
+  // Load available brands/manufacturers
+  useEffect(() => {
+    loadBrands();
+  }, [loadBrands]);
+
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      loadBrands();
+      setErrors({});
+    }
+    setOpen(nextOpen);
+  }, [loadBrands]);
 
   // Validate form
   const validateForm = () => {
@@ -68,8 +75,9 @@ export default function NewModelModal({ onSuccess }: Props) {
     } else if (modelData.model_name.trim().length < 2) {
       newErrors.model_name = "Le nom doit contenir au moins 2 caractères";
     }
-    if (!modelData.description.trim()) {
-      newErrors.description = "La description est requise";
+    const trimmedDescription = modelData.description.trim();
+    if (trimmedDescription && trimmedDescription.length < 2) {
+      newErrors.description = "La description doit contenir au moins 2 caractères";
     }
     
     setErrors(newErrors);
@@ -90,10 +98,11 @@ export default function NewModelModal({ onSuccess }: Props) {
         return false;
       }
 
+      const trimmedDescription = modelData.description.trim();
       const payload = {
         manufacturer_id: manufacturerId,
         model_name: modelData.model_name.trim(),
-        description: modelData.description.trim()
+        ...(trimmedDescription ? { description: trimmedDescription } : {})
       };
 
       await createModel(payload);
@@ -128,7 +137,7 @@ export default function NewModelModal({ onSuccess }: Props) {
       <DynamicModal
         triggerLabel="Nouveau Modèle"
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         title="Ajouter un nouveau modèle"
         description="Ajoutez un nouveau modèle à une marque existante."
         confirmLabel={isLoading ? "Création..." : "Créer le modèle"}
@@ -208,7 +217,7 @@ export default function NewModelModal({ onSuccess }: Props) {
           {/* Description */}
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="description">
-              Description <span className="text-red-500">*</span>
+              Description <span className="text-gray-500 text-xs">(optionnel)</span>
             </label>
             <Input
               id="description"
@@ -226,7 +235,7 @@ export default function NewModelModal({ onSuccess }: Props) {
           
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-blue-700 text-sm">
-              <strong>Note:</strong> Le modèle sera ajouté à la marque sélectionnée et apparaîtra dans la liste des TPEs disponibles.
+              <strong>Note:</strong> Le modèle sera ajouté à la marque sélectionnée et apparaîtra dans la liste des TPEs disponibles. La description est facultative et peut être précisée plus tard.
             </p>
           </div>
         </div>

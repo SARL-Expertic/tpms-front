@@ -91,7 +91,7 @@ export function DynamicModal({
         </DialogTrigger>
       )}
 
-      <DialogContent className="lg:min-w-2xl scale-90 max-h-[100vh] overflow-y-auto">
+      <DialogContent className="lg:min-w-2xl scale-76 max-h-[128vh]  overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import {
   FaInfoCircle,
   FaUser,
@@ -11,10 +11,12 @@ import {
   FaSave,
   FaTimes,
   FaCentos,
+  FaCheckCircle,
 } from "react-icons/fa";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DynamicModal } from "../Modal";
+import { UnsavedChangesDialog } from "@/components/shared/modal/UnsavedChangesDialog";
 import { Ticket } from "@/types/ticket";
 import {
   FaBoxesStacked,
@@ -85,7 +87,37 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const [editedTicket, setEditedTicket] = useState<Ticket>({ ...ticket });
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>("");
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  const clearOverlayTimeout = useCallback(() => {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearCloseTimeout = useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const showOverlayMessage = useCallback((message: string, duration = 1500) => {
+    setSuccessMessage(message);
+    setShowSuccessOverlay(true);
+    clearOverlayTimeout();
+    clearCloseTimeout();
+    successTimeoutRef.current = setTimeout(() => {
+      setShowSuccessOverlay(false);
+      successTimeoutRef.current = null;
+    }, duration);
+  }, [clearCloseTimeout, clearOverlayTimeout]);
+
   // New state for dropdown data
   const [availableConsumables, setAvailableConsumables] = useState<any[]>([]);
   const [availableTPEs, setAvailableTPEs] = useState<any[]>([]);
@@ -101,6 +133,68 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const [useExistingClient, setUseExistingClient] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
   const [selectedWilaya, setSelectedWilaya] = useState<any>(null);
+
+  const resetModalState = useCallback(() => {
+    clearOverlayTimeout();
+    clearCloseTimeout();
+    setShowSuccessOverlay(false);
+    setEditedTicket({ ...ticket });
+    setOriginalTicketData({ ...ticket });
+    setIsEditing(false);
+    setSuccessMessage("");
+    setSelectedBrand(null);
+    setAvailableModels([]);
+    setOriginalTerminalTypeId(null);
+    setSelectedExistingClient(null);
+    setUseExistingClient(false);
+    setShowClientList(false);
+    setSelectedWilaya(ticket.client?.location?.wilaya || null);
+    setIsLoading(false);
+    setIsLookingUpSN(false);
+  }, [clearCloseTimeout, clearOverlayTimeout, ticket]);
+
+  const forceCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    resetModalState();
+    setShowUnsavedDialog(false);
+  }, [resetModalState]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalTicketData) return false;
+    return JSON.stringify(editedTicket) !== JSON.stringify(originalTicketData);
+  }, [editedTicket, originalTicketData]);
+
+  const handleModalOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        resetModalState();
+        setIsModalOpen(true);
+        return;
+      }
+
+      if (isEditing && hasUnsavedChanges) {
+        setShowUnsavedDialog(true);
+        return;
+      }
+
+      forceCloseModal();
+    },
+    [forceCloseModal, hasUnsavedChanges, isEditing, resetModalState]
+  );
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      setEditedTicket({ ...ticket });
+      setOriginalTicketData({ ...ticket });
+    }
+  }, [ticket, isModalOpen]);
+
+  useEffect(() => {
+    return () => {
+      clearOverlayTimeout();
+      clearCloseTimeout();
+    };
+  }, [clearCloseTimeout, clearOverlayTimeout]);
 
   // Fetch consumables when editing starts
   const loadConsumables = async () => {
@@ -241,7 +335,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     }));
     setUseExistingClient(true);
     setShowClientList(false);
-    setSuccessMessage("✅ Client existant sélectionné");
+    showOverlayMessage("Client existant sélectionné", 1500);
   };
 
   // Toggle between existing and new client
@@ -288,28 +382,35 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   // Function to handle the GET request
   const handleGetRequest = async () => {
     setIsLoading(true);
-    setSuccessMessage(""); // Clear any previous message
+    setSuccessMessage("");
+    clearOverlayTimeout();
+    clearCloseTimeout();
     try {
       // Example GET request with ticketId as query parameter
       const response: any = await closeticket(parseInt(id));
 
-      setSuccessMessage("Ticket fermé avec succès!");
-      // Call onClose to refresh the table
+      showOverlayMessage("Ticket fermé avec succès !", 1600);
       if (onClose) {
-        setTimeout(() => onClose(), 1000); // Delay to show success message
+        closeTimeoutRef.current = setTimeout(() => {
+          onClose();
+          closeTimeoutRef.current = null;
+        }, 1200);
       }
     } catch (error) {
       console.error("Error making GET request:", error);
-      setSuccessMessage("Erreur lors de la fermeture du ticket");
+      showOverlayMessage("Erreur lors de la fermeture du ticket", 2000);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (options?: { closeAfter?: boolean }) => {
     if (!originalTicketData) return;
 
     setIsLoading(true);
+    setSuccessMessage("");
+    clearOverlayTimeout();
+    clearCloseTimeout();
     
     // Function to get only changed fields
     const getChangedFields = () => {
@@ -390,7 +491,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       
       // If no changes, don't make API call
       if (Object.keys(changedFields).length === 0) {
-        setSuccessMessage("ℹ️ Aucune modification détectée");
+        showOverlayMessage("Aucune modification détectée", 1500);
         setIsEditing(false);
         return;
       }
@@ -420,25 +521,33 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       // Handle different ticket types
       if (type === "CHOIX DE RÉSEAU") {
         await UpdateNetworkCheckTicket(parseInt(editedTicket.id), baseData);
-        setSuccessMessage("✅ Ticket mis à jour avec succès !");
+        showOverlayMessage("Ticket mis à jour avec succès !");
       } else if (type === "CONSOMMABLE") {
         await Updateconsoambleticket(parseInt(editedTicket.id), baseData);
-        setSuccessMessage("✅ Ticket consommable mis à jour avec succès !");
+        showOverlayMessage("Ticket consommable mis à jour avec succès !");
       } else if (type === "INTERVENTION") {
         await Updateinterventionticket(parseInt(editedTicket.id), baseData);
-        setSuccessMessage("✅ Ticket intervention mis à jour avec succès !");
+        showOverlayMessage("Ticket intervention mis à jour avec succès !");
       } else if (type === "DÉBLOCAGE") {
         await Updatedeblockingticket(parseInt(editedTicket.id), baseData);
-        setSuccessMessage("✅ Ticket déblocage mis à jour avec succès !");
+        showOverlayMessage("Ticket déblocage mis à jour avec succès !");
       } else {
         onSave(editedTicket);
+        showOverlayMessage("Ticket mis à jour avec succès !");
       }
       
       setIsEditing(false);
+      if (!options?.closeAfter) {
+        setOriginalTicketData({ ...editedTicket });
+      }
       
       // Call onClose to refresh the table
       if (onClose) {
-        setTimeout(() => onClose(), 1000);
+        closeTimeoutRef.current = setTimeout(() => onClose(), 1200);
+      }
+
+      if (options?.closeAfter) {
+        forceCloseModal();
       }
     } catch (error: any) {
       console.error("Error updating ticket:", error);
@@ -447,9 +556,9 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       if (error.response?.status === 400 && error.response?.data?.errors?.consumables) {
         const consumableErrors = error.response.data.errors.consumables.errors;
         if (consumableErrors.includes("Duplicate consumables types are not allowed")) {
-          setSuccessMessage("❌ Erreur: Types de consommables en double non autorisés. Veuillez supprimer les doublons.");
+          showOverlayMessage("Erreur: types de consommables en double non autorisés. Veuillez supprimer les doublons.", 2200);
         } else {
-          setSuccessMessage(`❌ Erreur de validation: ${consumableErrors.join(", ")}`);
+          showOverlayMessage(`Erreur de validation: ${consumableErrors.join(", ")}`, 2200);
         }
       } else if (error.response?.data?.message) {
         let errorMessage = error.response.data.message;
@@ -467,18 +576,35 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
           }
         }
         
-        setSuccessMessage(`❌ Erreur: ${errorMessage}`);
+        showOverlayMessage(`Erreur: ${errorMessage}`, 2200);
       } else {
-        setSuccessMessage("❌ Erreur lors de la mise à jour du ticket");
+        showOverlayMessage("Erreur lors de la mise à jour du ticket", 2200);
       }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleUnsavedSaveAndClose = async () => {
+    setShowUnsavedDialog(false);
+    await handleSave({ closeAfter: true });
+  };
+
+  const handleDiscardChanges = () => {
+    setShowUnsavedDialog(false);
+    forceCloseModal();
+  };
+
+  const handleContinueEditing = () => {
+    setShowUnsavedDialog(false);
+  };
+
   const handleCancel = () => {
-    setEditedTicket({ ...ticket });
+    setEditedTicket(originalTicketData ? { ...originalTicketData } : { ...ticket });
     setIsEditing(false);
+    setSuccessMessage("");
+    setShowSuccessOverlay(false);
+    clearOverlayTimeout();
   };
 
   const handleChange = (field: string, value: any) => {
@@ -608,17 +734,56 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     consumableRequest,
   } = editedTicket;
 
+  const isPositiveMessage = successMessage
+    ? !successMessage.toLowerCase().includes("erreur")
+    : true;
+
+  const overlayPalette: {
+    card: string;
+    iconBg: string;
+    text: string;
+    subtext: string;
+    glow: string;
+    accent: string;
+    icon: ReactNode;
+  } = isPositiveMessage
+    ? {
+        card: "border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100",
+        iconBg: "from-emerald-500 to-teal-500",
+        text: "text-emerald-800",
+        subtext: "text-emerald-700",
+        glow: "bg-emerald-200/40",
+        accent: "bg-teal-200/40",
+        icon: <FaCheckCircle className="h-10 w-10" />,
+      }
+    : {
+        card: "border-rose-200/70 bg-gradient-to-br from-rose-50 via-white to-rose-100",
+        iconBg: "from-rose-500 to-red-500",
+        text: "text-rose-800",
+        subtext: "text-rose-700",
+        glow: "bg-rose-200/40",
+        accent: "bg-red-200/40",
+        icon: <FaTimes className="h-10 w-10" />,
+      };
+
+  const overlaySubtext = isPositiveMessage
+    ? "Vos modifications sont enregistrées. Vous pouvez poursuivre sereinement."
+    : "Veuillez vérifier les informations puis réessayer.";
+
   return (
-    <DynamicModal
+    <>
+      <DynamicModal
       footer_childern={
-        <Button
-          onClick={handleGetRequest}
-          disabled={isLoading}
-          className="bg-red-500 hover:bg-red-800 text-white cursor-pointer flex items-center gap-2"
-        >
-          <FaDownLeftAndUpRightToCenter className="text-sm" />
-          {isLoading ? "Chargement..." : "Close Ticket"}
-        </Button>
+        !isEditing && (
+          <Button
+            onClick={handleGetRequest}
+            disabled={isLoading}
+            className="bg-red-500 hover:bg-red-800 text-white cursor-pointer flex items-center gap-2"
+          >
+            <FaDownLeftAndUpRightToCenter className="text-sm" />
+            {isLoading ? "Chargement..." : "Close Ticket"}
+          </Button>
+        )
       }
       triggerLabel={
         <Button
@@ -632,8 +797,28 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       title={`Détails du ticket #${id}`}
       description={`Informations complètes du ticket #${id}`}
       cancelLabel="Fermer"
+      open={isModalOpen}
+      onOpenChange={handleModalOpenChange}
+      disableCancel={isLoading}
     >
-      <div className="space-y-6 p-1">
+      <div className="relative space-y-6 p-1">
+        {showSuccessOverlay && successMessage && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-white/85 backdrop-blur-md">
+            <div className={`relative max-w-md space-y-4 rounded-2xl border ${overlayPalette.card} p-8 text-center shadow-xl`}>
+              <div className={`pointer-events-none absolute -top-10 right-0 h-24 w-24 rounded-full ${overlayPalette.glow} blur-3xl`} />
+              <div className={`pointer-events-none absolute bottom-0 -left-4 h-20 w-20 rounded-full ${overlayPalette.accent} blur-3xl`} />
+              <div className={`relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${overlayPalette.iconBg} text-white shadow-lg shadow-black/10`}>
+                {overlayPalette.icon}
+              </div>
+              <div className="relative space-y-2">
+                <p className={`text-xl font-semibold ${overlayPalette.text}`}>{successMessage}</p>
+                <p className={`text-sm leading-relaxed ${overlayPalette.subtext}`}>
+                  {overlaySubtext}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Edit Controls */}
         <div className="flex justify-end">
           {!isEditing ? (
@@ -649,7 +834,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
           ) : (
             <div className="flex gap-2">
               <Button
-                onClick={handleSave}
+                onClick={() => handleSave()}
                 size="sm"
                 disabled={isLoading}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
@@ -670,20 +855,6 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
             </div>
           )}
         </div>
-
-        {/* Success/Error Message */}
-        {successMessage && (
-          <div
-            className={`p-4 rounded-lg text-center font-medium ${
-              successMessage.includes("succès") ||
-              successMessage.includes("Ticket fermé")
-                ? "bg-green-100 text-green-800 border border-green-300"
-                : "bg-red-100 text-red-800 border border-red-300"
-            }`}
-          >
-            {successMessage}
-          </div>
-        )}
 
         {/* Ticket Header */}
         <div className="dark:from-slate-800 dark:to-gray-900 rounded-lg p-4">
@@ -1501,5 +1672,13 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         </div>
       </div>
     </DynamicModal>
+
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        onCancel={handleContinueEditing}
+        onDiscard={handleDiscardChanges}
+        onConfirm={handleUnsavedSaveAndClose}
+      />
+    </>
   );
 }

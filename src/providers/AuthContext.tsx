@@ -6,6 +6,10 @@ type User = {
   id: string;
   name: string;
   role: string;
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
 };
 
 type AuthContextType = {
@@ -24,6 +28,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(JSON.parse(storedUser));
     }
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
+    }
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, setUser }}>

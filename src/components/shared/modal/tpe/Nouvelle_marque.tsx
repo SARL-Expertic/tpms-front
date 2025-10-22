@@ -37,8 +37,9 @@ export default function NewBrandModal({ onSuccess }: Props) {
       newErrors.modelName = "Le nom du modèle doit contenir au moins 2 caractères";
     }
     
-    if (!brandData.description.trim()) {
-      newErrors.description = "La description est requise";
+    const trimmedDescription = brandData.description.trim();
+    if (trimmedDescription && trimmedDescription.length < 2) {
+      newErrors.description = "La description doit contenir au moins 2 caractères";
     }
     
     setErrors(newErrors);
@@ -55,9 +56,9 @@ export default function NewBrandModal({ onSuccess }: Props) {
       
       const manufacturerName = brandData.brandName.trim();
       const modelName = brandData.modelName.trim();
-      const modelDescription = brandData.description.trim();
+  const modelDescription = brandData.description.trim();
       
-      await createmanfacturer(manufacturerName, modelName, modelDescription);
+  await createmanfacturer(manufacturerName, modelName, modelDescription);
 
       
       // Reset form
@@ -161,7 +162,7 @@ export default function NewBrandModal({ onSuccess }: Props) {
           {/* Description input */}
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="description">
-              Description <span className="text-red-500">*</span>
+              Description <span className="text-gray-500 text-xs">(optionnel)</span>
             </label>
             <Input
               id="description"
@@ -179,7 +180,7 @@ export default function NewBrandModal({ onSuccess }: Props) {
           
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-blue-700 text-sm">
-              <strong>Note:</strong> Vous créez une nouvelle marque avec son premier modèle. Vous pourrez ajouter d'autres modèles à cette marque par la suite.
+              <strong>Note:</strong> Vous créez une nouvelle marque avec son premier modèle. Vous pourrez ajouter d'autres modèles à cette marque par la suite. La description est facultative et peut être ajoutée plus tard.
             </p>
           </div>
         </div>
