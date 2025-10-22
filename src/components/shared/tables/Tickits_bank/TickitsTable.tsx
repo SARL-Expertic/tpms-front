@@ -44,6 +44,8 @@ export default function TickitsTable() {
     return map[TYPE] || TYPE;
   }
 
+  
+
   const entofr_status = (STATUS: string): string => {
     const map: Record<string, string> = {
       "REQUESTED": "DEMANDÉ",

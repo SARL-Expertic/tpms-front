@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket, Updateinterventionticket, Updatedeblockingticket, fetchClients, clientfetch, fetchAttachments, downloadAttachment } from "@/app/api/tickets";
+import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket, Updateinterventionticket, Updatedeblockingticket, fetchClients, clientfetch, fetchAttachments, downloadAttachment, deleteAttachment } from "@/app/api/tickets";
 import { wilayas } from "@/constants/algeria/wilayas";
 import { Paperclip, Trash2, Upload, FileText, Download as DownloadIcon } from "lucide-react";
 
@@ -138,6 +138,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   // Attachment states
   const [attachments, setAttachments] = useState<any[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<number[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -159,6 +160,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     setIsLoading(false);
     setIsLookingUpSN(false);
     setNewFiles([]);
+    setDeletedAttachmentIds([]);
   }, [clearCloseTimeout, clearOverlayTimeout, ticket]);
 
   const forceCloseModal = useCallback(() => {
@@ -451,6 +453,22 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     } catch (error) {
       console.error('Error downloading attachment:', error);
       showOverlayMessage('Erreur lors du téléchargement du fichier', 2000);
+    }
+  };
+
+  // Handle deleting an existing attachment
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    try {
+      // Call API to delete attachment immediately
+      await deleteAttachment(parseInt(ticket.id), attachmentId);
+      
+      // Remove from displayed attachments
+      setAttachments(prev => prev.filter(att => att.id !== attachmentId));
+      
+      showOverlayMessage('Pièce jointe supprimée avec succès', 1500);
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      showOverlayMessage('Erreur lors de la suppression de la pièce jointe', 2000);
     }
   };
 
@@ -1783,18 +1801,18 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
           <div className="ml-12 space-y-4">
             {/* Existing Attachments */}
             {attachments.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Fichiers existants:</p>
-                <div className="grid gap-2">
+              <div className="space-y-2 max-w-md">
+                <p className="text-sm max-w-md text-muted-foreground">Fichiers existants:</p>
+                <div className="grid max-w-md gap-2">
                   {attachments.map((attachment: any) => (
                     <div
                       key={attachment.id}
-                      className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-colors"
+                      className="flex max-w-lg items-center justify-between gap-2 p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                         <FileText className="h-5 w-5 text-indigo-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-sm font-medium truncate" title={attachment.filename || attachment.name || 'Fichier sans nom'}>
                             {attachment.filename || attachment.name || 'Fichier sans nom'}
                           </p>
                           {attachment.size && (
@@ -1804,15 +1822,27 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadAttachment(attachment.id, attachment.filename || attachment.name || 'download')}
-                        className="flex items-center gap-2 hover:bg-indigo-100"
-                      >
-                        <DownloadIcon className="h-4 w-4" />
-                        Télécharger
-                      </Button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadAttachment(attachment.id, attachment.filename || attachment.name || 'download')}
+                          className="flex items-center gap-2 hover:bg-indigo-100"
+                        >
+                          <DownloadIcon className="h-4 w-4" />
+                          <span className="hidden sm:inline">Télécharger</span>
+                        </Button>
+                        {isEditing && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteAttachment(attachment.id)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1851,16 +1881,16 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
                 {newFiles.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Fichiers à envoyer ({newFiles.length}):</p>
-                    <div className="grid gap-2">
+                    <div className="grid max-w-md gap-2">
                       {newFiles.map((file, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200"
+                          className="flex  max-w-lg items-center justify-between gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200"
                         >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                             <FileText className="h-5 w-5 text-green-600 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{file.name}</p>
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              <p className="text-sm font-medium truncate" title={file.name}>{file.name}</p>
                               <p className="text-xs text-muted-foreground">
                                 {(file.size / 1024).toFixed(2)} KB
                               </p>
@@ -1870,7 +1900,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveNewFile(index)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

@@ -232,19 +232,29 @@ export const CreateNetworkCheckAccountManager = (
 
 export const UpdateNetworkCheckTicket = (
   ticket_id: number,
-  data: ClientBase & { client_id: number; status?: string; files?: File[] }
+  data: ClientBase & { client_id: number; status?: string; files?: File[]; deleteAttachmentIds?: number[] }
 ) => {
-  if (data.files && data.files.length > 0) {
+  // Always use FormData if we have files OR deleteAttachmentIds
+  if ((data.files && data.files.length > 0) || (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0)) {
     const formData = new FormData();
     
-    // Add files to FormData
-    data.files.forEach((file) => {
-      formData.append('files[]', file);
-    });
+    // Add files to FormData (use 'files' as key, backend will handle as array)
+    if (data.files && data.files.length > 0) {
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+    }
+    
+    // Add deleteAttachmentIds if present
+    if (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0) {
+      data.deleteAttachmentIds.forEach((id) => {
+        formData.append('deleteAttachmentIds[]', id.toString());
+      });
+    }
     
     // Add other fields to FormData
     Object.keys(data).forEach((key) => {
-      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+      if (key !== 'files' && key !== 'deleteAttachmentIds' && data[key as keyof typeof data] !== undefined) {
         formData.append(key, String(data[key as keyof typeof data]));
       }
     });
@@ -268,19 +278,30 @@ export const Updateconsoambleticket = (
     serialNumber?: string;
     status?: string;
     files?: File[];
+    deleteAttachmentIds?: number[];
   }
 ) => {
-  if (data.files && data.files.length > 0) {
+  // Always use FormData if we have files OR deleteAttachmentIds
+  if ((data.files && data.files.length > 0) || (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0)) {
     const formData = new FormData();
     
-    // Add files to FormData
-    data.files.forEach((file) => {
-      formData.append('files[]', file);
-    });
+    // Add files to FormData (use 'files' as key, backend will handle as array)
+    if (data.files && data.files.length > 0) {
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+    }
+    
+    // Add deleteAttachmentIds if present
+    if (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0) {
+      data.deleteAttachmentIds.forEach((id) => {
+        formData.append('deleteAttachmentIds[]', id.toString());
+      });
+    }
     
     // Add other fields to FormData (handle arrays and objects properly)
     Object.keys(data).forEach((key) => {
-      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+      if (key !== 'files' && key !== 'deleteAttachmentIds' && data[key as keyof typeof data] !== undefined) {
         const value = data[key as keyof typeof data];
         if (key === 'consumables' && Array.isArray(value)) {
           formData.append(key, JSON.stringify(value));
@@ -308,19 +329,30 @@ export const Updateinterventionticket = (
     problem_description?: string;
     status?: string;
     files?: File[];
+    deleteAttachmentIds?: number[];
   }
 ) => {
-  if (data.files && data.files.length > 0) {
+  // Always use FormData if we have files OR deleteAttachmentIds
+  if ((data.files && data.files.length > 0) || (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0)) {
     const formData = new FormData();
     
-    // Add files to FormData
-    data.files.forEach((file) => {
-      formData.append('files[]', file);
-    });
+    // Add files to FormData (use 'files' as key, backend will handle as array)
+    if (data.files && data.files.length > 0) {
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+    }
+    
+    // Add deleteAttachmentIds if present
+    if (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0) {
+      data.deleteAttachmentIds.forEach((id) => {
+        formData.append('deleteAttachmentIds[]', id.toString());
+      });
+    }
     
     // Add other fields to FormData
     Object.keys(data).forEach((key) => {
-      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+      if (key !== 'files' && key !== 'deleteAttachmentIds' && data[key as keyof typeof data] !== undefined) {
         formData.append(key, String(data[key as keyof typeof data]));
       }
     });
@@ -342,19 +374,30 @@ export const Updatedeblockingticket = (
     serialNumber?: string;
     status?: string;
     files?: File[];
+    deleteAttachmentIds?: number[];
   }
 ) => {
-  if (data.files && data.files.length > 0) {
+  // Always use FormData if we have files OR deleteAttachmentIds
+  if ((data.files && data.files.length > 0) || (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0)) {
     const formData = new FormData();
     
-    // Add files to FormData
-    data.files.forEach((file) => {
-      formData.append('files[]', file);
-    });
+    // Add files to FormData (use 'files' as key, backend will handle as array)
+    if (data.files && data.files.length > 0) {
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+    }
+    
+    // Add deleteAttachmentIds if present
+    if (data.deleteAttachmentIds && data.deleteAttachmentIds.length > 0) {
+      data.deleteAttachmentIds.forEach((id) => {
+        formData.append('deleteAttachmentIds[]', id.toString());
+      });
+    }
     
     // Add other fields to FormData
     Object.keys(data).forEach((key) => {
-      if (key !== 'files' && data[key as keyof typeof data] !== undefined) {
+      if (key !== 'files' && key !== 'deleteAttachmentIds' && data[key as keyof typeof data] !== undefined) {
         formData.append(key, String(data[key as keyof typeof data]));
       }
     });
@@ -404,4 +447,9 @@ export const downloadAttachment = (ticketId: number, attachmentId: number) =>
   api.get(
     `${ENDPOINTS.ATTACHMENTS}/${ticketId}/attachments/${attachmentId}`,
     { responseType: "blob" }
+  );
+
+export const deleteAttachment = (ticketId: number, attachmentId: number) =>
+  api.delete(
+    `${ENDPOINTS.ATTACHMENTS}/${ticketId}/attachments/${attachmentId}`
   );

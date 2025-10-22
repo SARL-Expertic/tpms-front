@@ -1,11 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { FaInfoCircle, FaUser, FaCreditCard, FaCalendarAlt, FaStickyNote } from "react-icons/fa";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DynamicModal } from "../Modal";
 import { Ticket } from "@/types/ticket";
 import { FaBoxesStacked } from "react-icons/fa6";
+import { fetchAttachments, downloadAttachment } from "@/app/api/tickets";
+import { Paperclip, FileText, Download as DownloadIcon } from "lucide-react";
 
 type Props = {
   ticket: Ticket;
@@ -19,9 +22,61 @@ const statusColorMap: Record<string, string> = {
 
 export function TicketDetailsButton({ ticket }: Props) {
   const { id, type, status, note, tpe, client, deblockingOrder, requestDate, completedDate, intervention , consumableRequest } = ticket;
+  
+  // Attachment states
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Fetch attachments when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      loadAttachments();
+    }
+  }, [isModalOpen]);
+
+  // Fetch attachments for the ticket
+  const loadAttachments = async () => {
+    setLoadingAttachments(true);
+    try {
+      const response = await fetchAttachments(parseInt(id));
+      setAttachments(response.data || []);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      setAttachments([]);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  // Download an attachment
+  const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const response = await downloadAttachment(parseInt(id), attachmentId);
+      
+      // Create blob from response
+      const blob = new Blob([response.data]);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+    }
+  };
 
   return (
     <DynamicModal
+      open={isModalOpen}
+      onOpenChange={setIsModalOpen}
       triggerLabel={
         <Button  size="sm" className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center gap-2">
           <FaInfoCircle className="text-lg" />
@@ -116,8 +171,8 @@ export function TicketDetailsButton({ ticket }: Props) {
   ) : (
     <div className="ml-12">
       <div className="grid gap-4 text-sm">
-        {consumableRequest.items.map((item) => (
-          <div key={item.id} className="mb-2">
+        {consumableRequest.items.map((item, index) => (
+          <div key={index} className="mb-2">
             <div>
               <span className="text-muted-foreground">Type:</span> {item.type}
             </div>
@@ -197,6 +252,65 @@ export function TicketDetailsButton({ ticket }: Props) {
             Notes
           </h3>
           <p className="text-sm bg-muted/30 rounded-lg p-4 ml-12">{note || "Aucune note"}</p>
+        </div>
+
+        {/* Attachments Section */}
+        <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
+              <Paperclip className="text-indigo-600 dark:text-indigo-400 h-5 w-5" />
+            </div>
+            Pièces jointes
+            {loadingAttachments && (
+              <div className="ml-2 animate-spin h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+            )}
+          </h3>
+          
+          <div className="ml-12 space-y-4">
+            {/* Existing Attachments */}
+            {attachments.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Fichiers disponibles:</p>
+                <div className="grid gap-2">
+                  {attachments.map((attachment: any) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center justify-between gap-2 p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                        <FileText className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-sm font-medium truncate" title={attachment.filename || attachment.name || 'Fichier sans nom'}>
+                            {attachment.filename || attachment.name || 'Fichier sans nom'}
+                          </p>
+                          {attachment.size && (
+                            <p className="text-xs text-muted-foreground">
+                              {(attachment.size / 1024).toFixed(2)} KB
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadAttachment(attachment.id, attachment.filename || attachment.name || 'download')}
+                          className="flex items-center gap-2 hover:bg-indigo-100"
+                        >
+                          <DownloadIcon className="h-4 w-4" />
+                          <span className="hidden sm:inline">Télécharger</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              !loadingAttachments && (
+                <p className="text-sm text-muted-foreground">Aucune pièce jointe</p>
+              )
+            )}
+          </div>
         </div>
       </div>
     </DynamicModal>
