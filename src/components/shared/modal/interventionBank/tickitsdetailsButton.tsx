@@ -37,6 +37,14 @@ import {
 import { closeticket, UpdateNetworkCheckTicket, fetchConsumables, terminalperbankfetch, Updateconsoambleticket, Updateinterventionticket, Updatedeblockingticket, fetchClients, clientfetch, fetchAttachments, downloadAttachment, deleteAttachment } from "@/app/api/tickets";
 import { wilayas } from "@/constants/algeria/wilayas";
 import { Paperclip, Trash2, Upload, FileText, Download as DownloadIcon } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Props = {
   ticket: Ticket;
@@ -141,6 +149,10 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<number[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Add new state for delete confirmation dialog
+  const [showDeleteAttachmentDialog, setShowDeleteAttachmentDialog] = useState(false);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<{id: number, name: string} | null>(null);
 
   const resetModalState = useCallback(() => {
     clearOverlayTimeout();
@@ -456,20 +468,36 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     }
   };
 
-  // Handle deleting an existing attachment
-  const handleDeleteAttachment = async (attachmentId: number) => {
+  // Update the handleDeleteAttachment function to show confirmation first
+  const handleDeleteAttachment = (attachmentId: number, filename: string) => {
+    setAttachmentToDelete({ id: attachmentId, name: filename });
+    setShowDeleteAttachmentDialog(true);
+  };
+
+  // Add new function to confirm deletion
+  const confirmDeleteAttachment = async () => {
+    if (!attachmentToDelete) return;
+    
     try {
       // Call API to delete attachment immediately
-      await deleteAttachment(parseInt(ticket.id), attachmentId);
+      await deleteAttachment(parseInt(ticket.id), attachmentToDelete.id);
       
       // Remove from displayed attachments
-      setAttachments(prev => prev.filter(att => att.id !== attachmentId));
+      setAttachments(prev => prev.filter(att => att.id !== attachmentToDelete.id));
       
       showOverlayMessage('Pièce jointe supprimée avec succès', 1500);
     } catch (error) {
       console.error('Error deleting attachment:', error);
       showOverlayMessage('Erreur lors de la suppression de la pièce jointe', 2000);
+    } finally {
+      setShowDeleteAttachmentDialog(false);
+      setAttachmentToDelete(null);
     }
+  };
+
+  const cancelDeleteAttachment = () => {
+    setShowDeleteAttachmentDialog(false);
+    setAttachmentToDelete(null);
   };
 
   // Function to handle the GET request
@@ -1849,7 +1877,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteAttachment(attachment.id)}
+                            onClick={() => handleDeleteAttachment(attachment.id, attachment.filename || attachment.name || 'Fichier')}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1935,6 +1963,47 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         onDiscard={handleDiscardChanges}
         onConfirm={handleUnsavedSaveAndClose}
       />
+
+      {/* Delete Attachment Confirmation Dialog */}
+      <Dialog open={showDeleteAttachmentDialog} onOpenChange={setShowDeleteAttachmentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Confirmer la suppression
+            </DialogTitle>
+            <DialogDescription className="pt-3">
+              Êtes-vous sûr de vouloir supprimer cette pièce jointe ?
+              {attachmentToDelete && (
+                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200">
+                  <p className="text-sm max-w-sm truncate font-medium text-foreground">
+                    {attachmentToDelete.name}
+                  </p>
+                </div>
+              )}
+              <p className="mt-3 text-sm text-muted-foreground">
+                Cette action est irréversible.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={cancelDeleteAttachment}
+              className="flex-1"
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteAttachment}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

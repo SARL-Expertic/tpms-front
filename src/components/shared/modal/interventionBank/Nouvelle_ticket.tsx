@@ -1213,24 +1213,25 @@ const handleSubmit = async () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="hardware">Matériel</SelectItem>
-              <SelectItem value="software">Logiciel</SelectItem>
+              <SelectItem value="software">Application</SelectItem>
               <SelectItem value="network">Réseau</SelectItem>
-              <SelectItem value="mechanical">Mécanique</SelectItem>
+              <SelectItem value="mechanical">Non Qualifié</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Type de problème :</label>
-          <Select
-            onValueChange={(value) => handleInterventionDataChange('problemType', value)}
-            value={interventionData.problemType}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez le type" />
-            </SelectTrigger>
-            <SelectContent>
-              {interventionData.problemCategory === "hardware" && (
+        {interventionData.problemCategory !== "mechanical" && (
+          <div className="flex flex-col">
+            <label className="text-sm font-medium mb-2">Type de problème :</label>
+            <Select
+              onValueChange={(value) => handleInterventionDataChange('problemType', value)}
+              value={interventionData.problemType}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sélectionnez le type" />
+              </SelectTrigger>
+              <SelectContent>
+                {interventionData.problemCategory === "hardware" && (
                 <>
                   <SelectItem value="screen_issue">Problème d'écran</SelectItem>
                   <SelectItem value="printer_issue">Problème d'imprimante</SelectItem>
@@ -1272,6 +1273,7 @@ const handleSubmit = async () => {
           </Select>
           {errors.problemType && <p className="text-red-500 text-xs mt-1">{errors.problemType}</p>}
         </div>
+        )}
       </div>
     </div>
 

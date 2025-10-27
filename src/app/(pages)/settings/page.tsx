@@ -10,6 +10,7 @@ type UserData = {
   last_name: string;
   phone?: string;
   role: string;
+  notifications_enabled?: boolean; // Add this field
 };
 
 type BankData = {
@@ -57,6 +58,9 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
+  // Add notification state in the component
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
   // Fetch user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
@@ -69,7 +73,7 @@ export default function SettingsPage() {
           firstName: userData.user.first_name,
           lastName: userData.user.last_name,
           email: userData.user.email,
-          phone: userData.user.phone || '' // Assuming phone might be optional
+          phone: userData.user.phone || ''
         };
 
         const originalUserDataObj = {
@@ -81,6 +85,7 @@ export default function SettingsPage() {
         
         setUserData(userDataObj);
         setOriginalUserData(originalUserDataObj);
+        setNotificationsEnabled(userData.user.notifications_enabled ?? true); // Set notification state
         
         setBankInfo(userData.bank);
 
@@ -208,6 +213,39 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Error changing password:', err);
       setError('Erreur lors du changement de mot de passe');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Add handler for notification toggle
+  const handleNotificationToggle = async (enabled: boolean) => {
+    try {
+      setIsUpdating(true);
+      setError('');
+      setSuccessMessage('');
+      
+      const updatePayload = {
+        notifications_enabled: enabled
+      };
+      
+      const updateFunction = getUpdateFunction();
+      await updateFunction(updatePayload);
+      
+      setNotificationsEnabled(enabled);
+      setSuccessMessage(
+        enabled 
+          ? 'Notifications activées avec succès!' 
+          : 'Notifications désactivées avec succès!'
+      );
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error updating notifications:', err);
+      setError('Erreur lors de la mise à jour des notifications');
+      // Revert the toggle on error
+      setNotificationsEnabled(!enabled);
     } finally {
       setIsUpdating(false);
     }
@@ -363,6 +401,81 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+
+        {/* Notifications Section */}
+        <div className="bg-white shadow rounded-lg mb-6 col-span-2">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">Préférences de Notification</h2>
+          </div>
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900">Notifications Push</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Recevez des notifications pour les mises à jour importantes de vos tickets
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleNotificationToggle(!notificationsEnabled)}
+                disabled={isUpdating}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  notificationsEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                role="switch"
+                aria-checked={notificationsEnabled}
+              >
+                <span className="sr-only">Activer les notifications</span>
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            
+            {/* Additional notification options */}
+            <div className="mt-6 space-y-4 border-t pt-4">
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="email-notifications"
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={(e) => handleNotificationToggle(e.target.checked)}
+                    disabled={isUpdating}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="email-notifications" className="font-medium text-gray-700">
+                    Notifications par Email
+                  </label>
+                  <p className="text-gray-500">Recevez des emails pour les changements de statut de tickets</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="browser-notifications"
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={(e) => handleNotificationToggle(e.target.checked)}
+                    disabled={isUpdating}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="browser-notifications" className="font-medium text-gray-700">
+                    Notifications Navigateur
+                  </label>
+                  <p className="text-gray-500">Affichez des notifications dans votre navigateur</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
