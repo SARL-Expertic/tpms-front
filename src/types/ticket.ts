@@ -4,6 +4,7 @@ export interface Ticket {
   status: string;
   note: string;
   bankname?: string;
+  bankTicketId?: string;
   bank?: {
     id: number;
     name: string;
@@ -27,7 +28,8 @@ export interface Ticket {
       address: string;
     };
   };
-  requestDate: string;   // already formatted with date-fns
+  requestDate: string;  
+  deliveredDate: string; // already formatted with date-fns
   completedDate: string; // already formatted with date-fns
   deblockingOrder?: {
     id: string;

@@ -14,6 +14,11 @@ export const TickitColumns: ColumnDef<Ticket>[] = [
     header: "N° ticket",
     cell: ({ row }) => <span>{row.original.id}</span>,
   },
+   {
+    accessorKey: "bankTicketId",
+    header: "N° ticket banque",
+    cell: ({ row }) => <span>{row.original.bankTicketId}</span>,
+  },
 
    {
     accessorKey: "date",

@@ -14,8 +14,12 @@ export const createTickitColumns = (onRefresh: () => void): ColumnDef<Ticket>[] 
     header: "N° ticket",
     cell: ({ row }) => <span>{row.original.id}</span>,
   },
-
-   {
+  {
+    accessorKey: "bankTicketId",
+    header: "N° ticket banque",
+    cell: ({ row }) => <span>{row.original.bankTicketId}</span>,
+  },
+  {
     accessorKey: "date",
     header: "DATE",
     cell: ({ row }) => <span>{row.original.requestDate}</span>,
