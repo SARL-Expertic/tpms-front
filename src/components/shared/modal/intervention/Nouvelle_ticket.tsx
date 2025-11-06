@@ -54,6 +54,7 @@ type UnblockingData = {
 type InterventionData = {
   problemCategory: string;
   problemType: string;
+  customProblemType?: string;
   tpeBrand: string;
   tpeModel: string;
   tpeSn: string;
@@ -78,6 +79,7 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
+  const [bankTicketId, setBankTicketId] = useState('')
 
   const [clientsfetch, setclientsfetch] = useState<any[]>([]);
   const [selectedClient, setSelectedClient] = useState<any>(null);
@@ -168,6 +170,7 @@ const handleSelect = (id: number | string) => {
  const [interventionData, setInterventionData] = useState<InterventionData>({
           problemCategory: '',
           problemType: '',
+          customProblemType: '',
           tpeBrand: '',
           tpeModel: '',
           tpeSn: '',
@@ -314,6 +317,9 @@ const validateForm = (): boolean => {
       if (!interventionData.problemType) {
         newErrors.problemType = "Le type de problème est obligatoire.";
       }
+      if (interventionData.problemType === 'other' && !interventionData.customProblemType) {
+        newErrors.customProblemType = "Veuillez spécifier le type de problème.";
+      }
       if (!interventionData.tpeBrand) {
         newErrors.tpeBrand = "La marque du TPE est obligatoire.";
       }
@@ -398,6 +404,7 @@ const resetForm = () => {
   setInterventionData({
     problemCategory: '',
     problemType: '',
+    customProblemType: '',
     tpeBrand: '',
     tpeModel: '',
     tpeSn: '',
@@ -422,6 +429,7 @@ const resetForm = () => {
   setSuccessMessage('')
   setShowSuccessOverlay(false)
   setDescription('')
+  setBankTicketId('')
   setIsSubmitting(false)
 }
 
@@ -456,6 +464,7 @@ const handleSubmit = async () => {
       client_daira: client.location.daira,
       client_address: client.location.address,
       notes: description,
+      bankTicketId: bankTicketId || undefined,
     };
     
     switch (activeTab) {
@@ -464,10 +473,14 @@ const handleSubmit = async () => {
         break;
         
       case 'intervention':
+        const problemDesc = interventionData.problemType === 'other' 
+          ? `${interventionData.problemCategory} - ${interventionData.customProblemType || 'Autre'}`
+          : `${interventionData.problemCategory} - ${interventionData.problemType}`;
+        
         await createInterventionTicket({
           ...basePayload,
           terminal_type_id: interventionData.terminal_type_id || 0,
-          problem_description: `${interventionData.problemCategory} - ${interventionData.problemType}`,
+          problem_description: problemDesc,
           tpe_seriel_number: interventionData.tpeSn || undefined
         });
         break;
@@ -477,6 +490,7 @@ const handleSubmit = async () => {
           notes: description,
           deblockingType: unblockingData.blockedReason,
           terminal_types: unblockingData.terminal_types,
+          bankTicketId: bankTicketId || undefined,
         });
         break;
         
@@ -1058,29 +1072,37 @@ const handleUnblockingModelChange = (modelName: string) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="hardware">Matériel</SelectItem>
-              <SelectItem value="software">Logiciel</SelectItem>
+              <SelectItem value="software">Application</SelectItem>
               <SelectItem value="network">Réseau</SelectItem>
-              <SelectItem value="mechanical">Mécanique</SelectItem>
+              <SelectItem value="mechanical">Non Qualifié</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="flex flex-col">
-          <label className="text-sm font-medium mb-2">Type de problème :</label>
-          <Select
-            onValueChange={(value) => handleInterventionDataChange('problemType', value)}
-            value={interventionData.problemType}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez le type" />
-            </SelectTrigger>
-            <SelectContent>
-              {interventionData.problemCategory === "hardware" && (
+        {interventionData.problemCategory !== "mechanical" && (
+          <div className="flex flex-col">
+            <label className="text-sm font-medium mb-2">Type de problème :</label>
+            <Select
+              onValueChange={(value) => {
+                handleInterventionDataChange('problemType', value);
+                // Clear custom problem type when selecting a predefined option
+                if (value !== 'other') {
+                  handleInterventionDataChange('customProblemType', '');
+                }
+              }}
+              value={interventionData.problemType}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sélectionnez le type" />
+              </SelectTrigger>
+              <SelectContent>
+                {interventionData.problemCategory === "hardware" && (
                 <>
                   <SelectItem value="screen_issue">Problème d'écran</SelectItem>
                   <SelectItem value="printer_issue">Problème d'imprimante</SelectItem>
                   <SelectItem value="card_reader_issue">Problème de lecteur de carte</SelectItem>
                   <SelectItem value="power_issue">Problème d'alimentation</SelectItem>
+                  <SelectItem value="other">Autre (préciser)</SelectItem>
                 </>
               )}
               {interventionData.problemCategory === "software" && (
@@ -1089,6 +1111,7 @@ const handleUnblockingModelChange = (modelName: string) => {
                   <SelectItem value="application_issue">Problème d'application</SelectItem>
                   <SelectItem value="configuration_issue">Problème de configuration</SelectItem>
                   <SelectItem value="update_issue">Problème de mise à jour</SelectItem>
+                  <SelectItem value="other">Autre (préciser)</SelectItem>
                 </>
               )}
               {interventionData.problemCategory === "network" && (
@@ -1097,6 +1120,7 @@ const handleUnblockingModelChange = (modelName: string) => {
                   <SelectItem value="slow_connection">Connexion lente</SelectItem>
                   <SelectItem value="vpn_issue">Problème VPN</SelectItem>
                   <SelectItem value="firewall_issue">Problème de firewall</SelectItem>
+                  <SelectItem value="other">Autre (préciser)</SelectItem>
                 </>
               )}
               {interventionData.problemCategory === "mechanical" && (
@@ -1105,6 +1129,7 @@ const handleUnblockingModelChange = (modelName: string) => {
                   <SelectItem value="mechanical_part">Pièce mécanique défectueuse</SelectItem>
                   <SelectItem value="jam_issue">Problème de bourrage papier</SelectItem>
                   <SelectItem value="worn_part">Pièce usée</SelectItem>
+                  <SelectItem value="other">Autre (préciser)</SelectItem>
                 </>
               )}
              {!interventionData.problemCategory && (
@@ -1117,6 +1142,30 @@ const handleUnblockingModelChange = (modelName: string) => {
           </Select>
           {errors.problemType && <p className="text-red-500 text-xs mt-1">{errors.problemType}</p>}
         </div>
+        )}
+
+        {/* Custom Problem Type Input - Show when "other" is selected */}
+        {interventionData.problemType === 'other' && (
+          <div className="flex flex-col md:col-span-2">
+            <label className="text-sm font-medium mb-2 flex items-center gap-2">
+              <span>Précisez le type de problème :</span>
+              <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="text"
+              placeholder="Ex: Problème de connecteur USB, Défaut tactile, etc."
+              value={interventionData.customProblemType || ''}
+              onChange={(e) => handleInterventionDataChange('customProblemType', e.target.value)}
+              className="w-full"
+            />
+            {errors.customProblemType && (
+              <p className="text-red-500 text-xs mt-1">{errors.customProblemType}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Décrivez brièvement le type de problème non listé ci-dessus
+            </p>
+          </div>
+        )}
       </div>
     </div>
 
@@ -1433,6 +1482,23 @@ const handleUnblockingModelChange = (modelName: string) => {
 )}
           </div>
   )}
+          {/* Bank Ticket ID (optional, common to all types) */}
+          <div className="md:col-span-2 flex flex-col">
+            <label className="text-sm font-medium mb-2">
+              ID du ticket bancaire (optionnel) :
+            </label>
+            <Input
+              type="text"
+              placeholder="Ex: BNK-2025-001234"
+              value={bankTicketId}
+              onChange={(e) => setBankTicketId(e.target.value)}
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Référence du ticket fournie par la banque (si disponible)
+            </p>
+          </div>
+
           {/* Description (common to all types) */}
           <div className="md:col-span-2 flex flex-col">
             <label className="text-sm font-medium mb-2">Description :</label>

@@ -12,6 +12,7 @@ interface ClientBase {
   client_daira: string;
   client_address: string;
   notes: string;
+  bankTicketId?: string;
 }
 
 interface NewOrExistingClient extends ClientBase {
@@ -224,6 +225,7 @@ export const CreateDeblockingAccountManager = (data: {
   notes: string;
   deblockingType: string;
   terminal_types: { terminal_type_id: number; quantity: number }[];
+  bankTicketId?: string;
 }) => api.post(ENDPOINTS.DEBLOCKINGACCOUNT_MANAGER, data);
 
 export const CreateNetworkCheckAccountManager = (
@@ -464,3 +466,76 @@ export const downloadBankEmployeeAttachment = (ticketId: number, attachmentId: n
     `${ENDPOINTS.BankUSERATTACHMENTS}/${ticketId}/attachments/${attachmentId}`,
     { responseType: "blob" }
   );
+
+
+
+export const CREATE_DEAD_STOCK = (data: {
+  name: string;
+  quantity: number;
+  condition: string;
+  notes: string;
+  bankId?: number;
+  isActive?: boolean;
+}) => api.post(ENDPOINTS.DEAD_STOCK, data);
+
+export const FETCH_DEAD_STOCK_SUMMARY = () =>
+  api.get(`${ENDPOINTS.DEAD_STOCK_SUMMARY}`);
+
+
+export const FETCH_ALL_DEAD_STOCK = () =>
+  api.get(ENDPOINTS.DEAD_STOCK);
+
+
+export const GET_DETAILS_DEAD_STOCK_ITEM = (deadStockId: number) =>
+  api.get(`${ENDPOINTS.DEAD_STOCK}/${deadStockId}`);
+
+
+export const UPDATE_DEAD_STOCK = (deadStockId: number, data: {
+  name?: string;
+  quantity?: number;
+  condition?: string;
+  notes?: string;
+  bank_id?: number;
+}) => api.put(`${ENDPOINTS.DEAD_STOCK}/${deadStockId}`, data);
+
+export const assgined_dead_stock_to_bank = (deadStockId: number, bankId: number) =>
+  api.put(`${ENDPOINTS.DEAD_STOCK}/${deadStockId}/assign-bank/${bankId}`);
+
+export const remove_dead_stock_from_bank = (deadStockId: number) =>
+  api.put(`${ENDPOINTS.DEAD_STOCK}/${deadStockId}/unassign-bank`);
+
+export const DELETE_DEAD_STOCK = (deadStockId: number) =>
+  api.delete(`${ENDPOINTS.DEAD_STOCK}/${deadStockId}/permanent`);
+
+
+export const PING_NOTIFICATION_SERVICE = () =>
+  api.get(ENDPOINTS.PING_NOTIFICATION_SERVICE);
+
+export const STREAM_NOTIFICATION_SERVICE = () => {
+  // For SSE (Server-Sent Events), we need to use EventSource instead of axios
+  // Return the full URL for EventSource connection
+  return `${api.defaults.baseURL}${ENDPOINTS.STREAM_NOTIFICATION_SERVICE}`;
+};
+
+
+export const FETCH_DEAD_STOCK_CLIENT = () =>
+  api.get(ENDPOINTS.DEAD_STOCK_client);
+
+export const FETCH_DEAD_STOCK_CLIENT_SUMMARY = () =>
+  api.get(`${ENDPOINTS.DEAD_STOCK_CLIENT_SUMMARY}`);
+
+export const Update_model_terminal_type = (
+  id: number,
+  data: {
+    manufacturer_id: number;
+    model_name: string;
+    description?: string;
+  }
+) => api.put(`${ENDPOINTS.CREATEMODEL}/${id}`, data);
+
+export const Update_manufacturer_terminal_type = (
+  id: number,
+  data: {
+    manufacturer_name: string;
+  }
+) => api.put(`${ENDPOINTS.createmanfacturer}/${id}`, data);

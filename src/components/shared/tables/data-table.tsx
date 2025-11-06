@@ -85,7 +85,7 @@ const filteredData = useMemo(() => {
         />
 
         <div className="flex flex-wrap gap-4">
-        {filters?.map(({ key, placeholder,label }) => {
+        {filters?.map(({ key, placeholder, label, labelMap }) => {
   const uniqueValues = Array.from(new Set(data.map((d) => d[key])))
 
   return (
@@ -109,7 +109,7 @@ const filteredData = useMemo(() => {
         {/* Actual distinct values */}
         {uniqueValues.map((val) => (
           <SelectItem key={String(val)} value={String(val)}>
-            {String(val)}
+            {labelMap ? labelMap(val) : String(val)}
           </SelectItem>
         ))}
       </SelectContent>

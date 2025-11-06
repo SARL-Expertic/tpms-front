@@ -74,7 +74,6 @@ export default function TickitsTable() {
           note: ticket?.notes ?? '',
           model: ticket?.terminalType?.model?.name ?? '-',
           brand: ticket?.terminalType?.manufacturer?.name ?? '-',
-          bankTicketId: ticket?.bankTicketId ?? '-',
           bankname: ticket?.bank?.name ?? '-',
           bank: ticket?.bank ? {
             id: ticket?.bank?.id ?? 0,
@@ -114,9 +113,6 @@ export default function TickitsTable() {
           } : undefined,
           requestDate: ticket?.requestDate
             ? format(new Date(ticket.requestDate), "dd/MM/yyyy HH:mm")
-            : "",
-          deliveredDate: ticket?.deliveredDate
-            ? format(new Date(ticket.deliveredDate), "dd/MM/yyyy HH:mm")
             : "",
           completedDate: ticket?.completedDate
             ? format(new Date(ticket.completedDate), "dd/MM/yyyy HH:mm")

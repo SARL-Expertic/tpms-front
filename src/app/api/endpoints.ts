@@ -51,7 +51,16 @@ UPLOAD_EXCEL: "/api/account-manager/ticket/excel/upload",
 ATTACHMENTS: "/api/account-manager/ticket",
 
 
-BankUSERATTACHMENTS: "/api/bank-employee/ticket",
+BankUSERATTACHMENTS: "/bank-employee/ticket",
 
+DEAD_STOCK:"/account-manager/dead-stock",
+
+DEAD_STOCK_client:"/api/bank-employee/dead-stock",
+DEAD_STOCK_CLIENT_SUMMARY:"/api/bank-employee/dead-stock/summary",
+
+DEAD_STOCK_SUMMARY:"/account-manager/dead-stock/summary",
+
+PING_NOTIFICATION_SERVICE: "/notifications/ping",
+STREAM_NOTIFICATION_SERVICE: "/notifications/stream",
 
 };

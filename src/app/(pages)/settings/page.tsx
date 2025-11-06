@@ -10,6 +10,7 @@ type UserData = {
   last_name: string;
   phone?: string;
   role: string;
+  notifications_enabled?: boolean; // Add this field
 };
 
 type BankData = {
@@ -57,6 +58,9 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
+  // Add notification state in the component
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
   // Fetch user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
@@ -69,7 +73,7 @@ export default function SettingsPage() {
           firstName: userData.user.first_name,
           lastName: userData.user.last_name,
           email: userData.user.email,
-          phone: userData.user.phone || '' // Assuming phone might be optional
+          phone: userData.user.phone || ''
         };
 
         const originalUserDataObj = {
@@ -81,6 +85,7 @@ export default function SettingsPage() {
         
         setUserData(userDataObj);
         setOriginalUserData(originalUserDataObj);
+        setNotificationsEnabled(userData.user.notifications_enabled ?? true); // Set notification state
         
         setBankInfo(userData.bank);
 
@@ -208,6 +213,39 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Error changing password:', err);
       setError('Erreur lors du changement de mot de passe');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Add handler for notification toggle
+  const handleNotificationToggle = async (enabled: boolean) => {
+    try {
+      setIsUpdating(true);
+      setError('');
+      setSuccessMessage('');
+      
+      const updatePayload = {
+        notifications_enabled: enabled
+      };
+      
+      const updateFunction = getUpdateFunction();
+      await updateFunction(updatePayload);
+      
+      setNotificationsEnabled(enabled);
+      setSuccessMessage(
+        enabled 
+          ? 'Notifications activées avec succès!' 
+          : 'Notifications désactivées avec succès!'
+      );
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error updating notifications:', err);
+      setError('Erreur lors de la mise à jour des notifications');
+      // Revert the toggle on error
+      setNotificationsEnabled(!enabled);
     } finally {
       setIsUpdating(false);
     }
@@ -365,6 +403,8 @@ export default function SettingsPage() {
             </form>
           </div>
         </div>
+
+    
 
         {/* Bank Information Section - Only for Client role */}
         {role_current === 'BANK_USER' && (
