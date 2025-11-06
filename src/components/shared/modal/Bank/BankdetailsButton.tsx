@@ -753,7 +753,27 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
       {/* ID + Code */}
       <div className="space-y-2">
         <p className="text-muted-foreground">ID: {bank.id}</p>
-        <p className="text-muted-foreground">Code: {bank.code}</p>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Code:</span>
+          {isEditing ? (
+            <div className="flex-1">
+              <Input
+                value={editedBank.code}
+                onChange={(e) => handleChange("code", e.target.value)}
+                className={`w-[200px] ${errors.code ? 'border-red-500' : ''}`}
+                placeholder="Code de la banque"
+              />
+              {errors.code && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.code}
+                </p>
+              )}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">{bank.code}</span>
+          )}
+        </div>
       </div>
 
       {/* Phone Number */}
@@ -782,19 +802,55 @@ console.log("newly added models: ", [...newlyAddedModels, newTPE]);
       )}
 
       {/* Location */}
-      {bank.currentLocation && (
-        <div className="space-y-1">
+      {(bank.currentLocation || isEditing) && (
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold">{bank.currentLocation.name}</span>
+            <span className="font-semibold">Adresse</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {bank.currentLocation.address}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {bank.currentLocation.localite}, {bank.currentLocation.daira},{" "}
-            {bank.currentLocation.wilaya}
-          </p>
+          {isEditing ? (
+            <div className="flex-1">
+              <Input
+                value={editedBank.currentLocation?.address || ""}
+                onChange={(e) => {
+                  const newAddress = e.target.value;
+                  setEditedBank(prev => ({
+                    ...prev,
+                    currentLocation: prev.currentLocation 
+                      ? { ...prev.currentLocation, address: newAddress }
+                      : { id: 0, name: "", address: newAddress, wilaya: null, daira: null, localite: null }
+                  }));
+                  // Clear address error when user starts typing
+                  if (errors.address) {
+                    setErrors(prev => {
+                      const { address, ...rest } = prev;
+                      return rest;
+                    });
+                  }
+                }}
+                className={`w-full ${errors.address ? 'border-red-500' : ''}`}
+                placeholder="Adresse de la banque"
+              />
+              {errors.address && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.address}
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {bank.currentLocation?.address}
+              </p>
+              {bank.currentLocation?.localite && bank.currentLocation?.daira && bank.currentLocation?.wilaya && (
+                <p className="text-sm text-muted-foreground">
+                  {bank.currentLocation.localite}, {bank.currentLocation.daira},{" "}
+                  {bank.currentLocation.wilaya}
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
     </CardContent>
