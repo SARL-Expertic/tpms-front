@@ -5,7 +5,7 @@ export default function Topbar() {
   return (
     <header className="flex justify-between items-center   ">
       <WelcomeMessage/>
-      {/* <NotificationToggle /> */}
+      <NotificationToggle />
     </header>
   )
 }
