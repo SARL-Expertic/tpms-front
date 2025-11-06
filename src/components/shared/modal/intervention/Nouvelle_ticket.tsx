@@ -1482,7 +1482,9 @@ const handleUnblockingModelChange = (modelName: string) => {
 )}
           </div>
   )}
+
           {/* Bank Ticket ID (optional, common to all types) */}
+         {activeTab!=='unblocking' &&
           <div className="md:col-span-2 flex flex-col">
             <label className="text-sm font-medium mb-2">
               ID du ticket bancaire (optionnel) :
@@ -1498,7 +1500,7 @@ const handleUnblockingModelChange = (modelName: string) => {
               Référence du ticket fournie par la banque (si disponible)
             </p>
           </div>
-
+}
           {/* Description (common to all types) */}
           <div className="md:col-span-2 flex flex-col">
             <label className="text-sm font-medium mb-2">Description :</label>

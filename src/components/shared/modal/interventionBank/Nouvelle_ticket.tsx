@@ -846,6 +846,8 @@ const handleSubmit = async () => {
  </div>
 
  {/* Bank Ticket ID (Optional) */}
+          {activeTab!=='unblocking' &&
+
  <div className="flex flex-col gap-1">
    <label className="text-sm font-medium mb-2">N° Ticket Banque (optionnel) :</label>
    <Input
@@ -859,7 +861,7 @@ const handleSubmit = async () => {
      Référence du ticket fournie par la banque
    </p>
  </div>
-
+}
 </div>
 
 

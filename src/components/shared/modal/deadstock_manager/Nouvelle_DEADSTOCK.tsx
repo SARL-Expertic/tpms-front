@@ -21,6 +21,7 @@ export default function NewDeadStockModal({ onSuccess }: Props) {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [availableBanks, setAvailableBanks] = useState<any[]>([]);
+  const [justSubmitted, setJustSubmitted] = useState(false); // Flag to bypass unsaved changes check
   const [deadStockData, setDeadStockData] = useState({
     name: "",
     quantity: 1,
@@ -93,6 +94,7 @@ export default function NewDeadStockModal({ onSuccess }: Props) {
       isActive: true,
     });
     setErrors({});
+    setJustSubmitted(false); // Reset the flag
   };
 
   const handleModalOpenChange = (nextOpen: boolean) => {
@@ -102,13 +104,14 @@ export default function NewDeadStockModal({ onSuccess }: Props) {
       return;
     }
 
-    // Check for unsaved changes before closing
-    if (hasUnsavedChanges) {
-      setShowUnsavedDialog(true);
+    // If just submitted successfully, bypass unsaved changes check
+    if (justSubmitted) {
+      finalizeClose();
       return;
     }
 
-    // No unsaved changes, close directly
+    // Simply close without showing unsaved changes dialog
+    // User can cancel anytime without confirmation
     finalizeClose();
   };
 
@@ -150,16 +153,23 @@ export default function NewDeadStockModal({ onSuccess }: Props) {
       
       console.log("✅ New dead stock item created successfully");
       
-      // Reset form
-      resetForm();
-      
       // Call success callback to refresh parent table
       if (onSuccess) {
         onSuccess();
       }
       
+      // Mark as successfully submitted to bypass unsaved changes check
+      setJustSubmitted(true);
+      
+      // Close all dialogs
       setShowUnsavedDialog(false);
       setOpen(false);
+      
+      // Reset form after closing
+      setTimeout(() => {
+        resetForm();
+      }, 100);
+      
       return true;
     } catch (error) {
       console.error('Error creating dead stock:', error);

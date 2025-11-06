@@ -511,12 +511,16 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       const response: any = await closeticket(parseInt(id));
 
       showOverlayMessage("Ticket fermé avec succès !", 1600);
+      
+      // Refresh the table
       if (onClose) {
-        closeTimeoutRef.current = setTimeout(() => {
-          onClose();
-          closeTimeoutRef.current = null;
-        }, 1200);
+        onClose();
       }
+      
+      // Close the modal after showing success message
+      setTimeout(() => {
+        forceCloseModal();
+      }, 1200);
     } catch (error) {
       console.error("Error making GET request:", error);
       showOverlayMessage("Erreur lors de la fermeture du ticket", 2000);
@@ -693,9 +697,11 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         await Updatedeblockingticket(parseInt(editedTicket.id), baseData);
         showOverlayMessage("Ticket déblocage mis à jour avec succès !");
       } else {
-        onSave(editedTicket);
         showOverlayMessage("Ticket mis à jour avec succès !");
       }
+      
+      // Always call onSave to update the parent component's state with edited ticket
+      onSave(editedTicket);
       
       // Clear new files after successful save
       setNewFiles([]);
@@ -707,13 +713,16 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
         setOriginalTicketData({ ...editedTicket });
       }
       
-      // Call onClose to refresh the table
+      // Call onClose to refresh the table immediately
       if (onClose) {
-        closeTimeoutRef.current = setTimeout(() => onClose(), 1200);
+        onClose();
       }
 
       if (options?.closeAfter) {
-        forceCloseModal();
+        // Close modal after a short delay to show success message
+        setTimeout(() => {
+          forceCloseModal();
+        }, 1200);
       }
     } catch (error: any) {
       console.error("Error updating ticket:", error);
