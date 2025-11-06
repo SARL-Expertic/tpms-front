@@ -147,6 +147,7 @@ export default function TPESTable() {
             : "",
           manufacturerId: tpe?.manufacturer?.id ?? null,
           modelId: tpe?.modelId ?? null,
+          modelDescription: model?.description ?? "",
         }
       })
 

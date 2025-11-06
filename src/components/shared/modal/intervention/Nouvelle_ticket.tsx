@@ -78,6 +78,7 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
+  const [bankTicketId, setBankTicketId] = useState('')
 
   const [clientsfetch, setclientsfetch] = useState<any[]>([]);
   const [selectedClient, setSelectedClient] = useState<any>(null);
@@ -422,6 +423,7 @@ const resetForm = () => {
   setSuccessMessage('')
   setShowSuccessOverlay(false)
   setDescription('')
+  setBankTicketId('')
   setIsSubmitting(false)
 }
 
@@ -456,6 +458,7 @@ const handleSubmit = async () => {
       client_daira: client.location.daira,
       client_address: client.location.address,
       notes: description,
+      bankTicketId: bankTicketId || undefined,
     };
     
     switch (activeTab) {
@@ -477,6 +480,7 @@ const handleSubmit = async () => {
           notes: description,
           deblockingType: unblockingData.blockedReason,
           terminal_types: unblockingData.terminal_types,
+          bankTicketId: bankTicketId || undefined,
         });
         break;
         
@@ -1435,6 +1439,23 @@ const handleUnblockingModelChange = (modelName: string) => {
 )}
           </div>
   )}
+          {/* Bank Ticket ID (optional, common to all types) */}
+          <div className="md:col-span-2 flex flex-col">
+            <label className="text-sm font-medium mb-2">
+              ID du ticket bancaire (optionnel) :
+            </label>
+            <Input
+              type="text"
+              placeholder="Ex: BNK-2025-001234"
+              value={bankTicketId}
+              onChange={(e) => setBankTicketId(e.target.value)}
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Référence du ticket fournie par la banque (si disponible)
+            </p>
+          </div>
+
           {/* Description (common to all types) */}
           <div className="md:col-span-2 flex flex-col">
             <label className="text-sm font-medium mb-2">Description :</label>

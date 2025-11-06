@@ -589,7 +589,7 @@ const validateTPE = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sub-password" className="flex items-center gap-1">
-                      Mot de passe <span className="text-gray-400">(optionnel)</span>
+                      Mot de passe <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
                       <Key className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
@@ -600,7 +600,7 @@ const validateTPE = () => {
                         value={newSub.password}
                         onChange={(e) => setNewSub({ ...newSub, password: e.target.value })}
                         className="pl-10"
-                        autoComplete="new-password"
+                        autoComplete="off"
                       />
                     </div>
                   </div>

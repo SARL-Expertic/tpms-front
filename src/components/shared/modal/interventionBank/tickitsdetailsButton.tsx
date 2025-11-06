@@ -654,10 +654,20 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
           }
         }
       } else {
-        // For other ticket types, only send client_id if it changed
-        if (editedTicket.client?.id !== originalTicketData.client?.id) {
+        // For other ticket types, send client_id if it changed OR if client details changed
+        // so the backend knows which existing client record to update.
+        const clientId = editedTicket.client?.id;
+        const clientChanged =
+          editedTicket.client?.name !== originalTicketData.client?.name ||
+          editedTicket.client?.phoneNumber !== originalTicketData.client?.phoneNumber ||
+          editedTicket.client?.brand !== originalTicketData.client?.brand ||
+          editedTicket.client?.location?.wilaya !== originalTicketData.client?.location?.wilaya ||
+          editedTicket.client?.location?.daira !== originalTicketData.client?.location?.daira ||
+          editedTicket.client?.location?.address !== originalTicketData.client?.location?.address;
+
+        if (clientId && (editedTicket.client?.id !== originalTicketData.client?.id || clientChanged)) {
           baseData.new_client = false;
-          baseData.client_id = parseInt(editedTicket.client?.id?.toString() || "0");
+          baseData.client_id = parseInt(clientId?.toString() || "0");
         }
       }
 
@@ -885,6 +895,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
     client,
     deblockingOrder,
     requestDate,
+    deliveredDate,
     completedDate,
     intervention,
     consumableRequest,
@@ -944,10 +955,10 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
       triggerLabel={
         <Button
           size="sm"
-          className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center gap-2"
+          className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center "
         >
-          <FaInfoCircle className="text-lg" />
-          Détails
+          <FaInfoCircle className="" />
+          
         </Button>
       }
       title={`Détails du ticket #${id}`}
@@ -1087,6 +1098,12 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
                   <div>
                     <span className="text-muted-foreground">Demande:</span>
                     {` ${requestDate}`}
+                  </div>
+                  <div>
+                     {type === "DÉBLOCAGE" && (
+                  <div><span className="text-muted-foreground">Livraison:</span> {deliveredDate || "—"}</div>
+                )}
+                    
                   </div>
                   <div>
                     <span className="text-muted-foreground">Clôture:</span>

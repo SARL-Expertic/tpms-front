@@ -21,7 +21,7 @@ const statusColorMap: Record<string, string> = {
 };
 
 export function TicketDetailsButton({ ticket }: Props) {
-  const { id, type, status, note, tpe, client, deblockingOrder, requestDate, completedDate, intervention , consumableRequest } = ticket;
+  const { id, type, status, note, tpe, client, deblockingOrder, requestDate, deliveredDate, completedDate, intervention, consumableRequest } = ticket;
   
   // Attachment states
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -79,8 +79,7 @@ export function TicketDetailsButton({ ticket }: Props) {
       onOpenChange={setIsModalOpen}
       triggerLabel={
         <Button  size="sm" className="flex bg-blue-600 hover:bg-blue-700 cursor-pointer items-center gap-2">
-          <FaInfoCircle className="text-lg" />
-          Détails
+          <FaInfoCircle className="text-lg" />  
         </Button>
       }
       title="Détails du ticket"
@@ -125,7 +124,11 @@ export function TicketDetailsButton({ ticket }: Props) {
                 <h3 className="font-semibold text-foreground text-sm">Dates</h3>
                 <div className="text-sm">
                   <div><span className="text-muted-foreground">Demande:</span> {requestDate}</div>
+                  {type === "DÉBLOCAGE" && (
+                  <div><span className="text-muted-foreground">Livraison:</span> {deliveredDate || "—"}</div>
+                )}
                   <div><span className="text-muted-foreground">Clôture:</span> {completedDate || "—"}</div>
+
                 </div>
               </div>
             </div>

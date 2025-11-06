@@ -172,6 +172,7 @@ export default function CreateTicketButton({ onCreate }: { onCreate?: () => void
 
   const [phone, setPhone] = useState('')
   const [description, setDescription] = useState('')
+  const [bankTicketId, setBankTicketId] = useState('')
 
   const [clientsfetch, setclientsfetch] = useState<APIClient[]>([]);
   const [selectedClient, setSelectedClient] = useState<APIClient | null>(null)
@@ -524,6 +525,7 @@ const resetForm = useCallback(() => {
   setSelectedClient(null);
   setclientsfetch([]);
   setDescription('');
+  setBankTicketId('');
   setPhone('');
   setPhoto(null);
   setPreview(null);
@@ -568,6 +570,7 @@ const handleSubmit = async () => {
       client_daira: client.location.daira,
       client_address: client.location.address,
       notes: description || '',
+      bankTicketId: bankTicketId || undefined,
     };
 
     switch (activeTab) {
@@ -590,6 +593,7 @@ const handleSubmit = async () => {
           notes: description || '',
           deblockingType: unblockingData.blockedReason,
           terminal_types: unblockingData.terminal_types,
+          bankTicketId: bankTicketId || undefined,
         });
         break;
 
@@ -830,6 +834,21 @@ const handleSubmit = async () => {
       ))}
     </SelectContent>
   </Select>
+ </div>
+
+ {/* Bank Ticket ID (Optional) */}
+ <div className="flex flex-col gap-1">
+   <label className="text-sm font-medium mb-2">N° Ticket Banque (optionnel) :</label>
+   <Input
+     type="text"
+     placeholder="ex: BANK-2024-001"
+     value={bankTicketId}
+     onChange={(e) => setBankTicketId(e.target.value)}
+     className="w-full"
+   />
+   <p className="text-xs text-gray-500 mt-1">
+     Référence du ticket fournie par la banque
+   </p>
  </div>
 
 </div>
