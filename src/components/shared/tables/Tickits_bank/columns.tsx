@@ -52,7 +52,7 @@ export const createTickitColumns = (onRefresh: () => void): ColumnDef<Ticket>[] 
   "EN ATTENTE D'APPROBATION (MASQUÉ)": "text-yellow-500",
   "MASQUÉ": "text-gray-400",
   "PROBLÈME CLIENT": "text-red-500",
-  "LIVRÉ": "text-green-500",
+  "LIVRÉ SATIM": "text-green-500",
   "ANNULÉ": "text-red-600"
 };
       return (

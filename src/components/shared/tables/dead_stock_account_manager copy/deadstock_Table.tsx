@@ -53,7 +53,7 @@ export default function TickitsTable() {
       "PENDING": "EN ATTENTE", 
       "COMPLETED": "CLOTURÉ",
       "CLIENT_PROBLEM": "PROBLÈME CLIENT",
-      "DELIVERED": "LIVRÉ", 
+      "DELIVERED": "LIVRÉ SATIM", 
       "CANCELLED": "ANNULÉ",
       "HIDDEN_PENDING_APPROVAL": "EN ATTENTE D'APPROBATION (MASQUÉ)",
       "HIDDEN": "MASQUÉ",

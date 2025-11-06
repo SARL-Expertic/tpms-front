@@ -58,7 +58,7 @@ const statusColorMap: Record<string, string> = {
   "EN ATTENTE": "bg-blue-500",
   CLOTURÉ: "bg-green-600",
   "PROBLÈME CLIENT": "bg-red-500",
-  LIVRÉ: "bg-green-500",
+  "LIVRÉ SATIM": "bg-green-500",
   ANNULÉ: "bg-red-600",
   "EN ATTENTE D'APPROBATION (MASQUÉ)": "bg-yellow-500",
   MASQUÉ: "bg-gray-400",
@@ -70,7 +70,7 @@ const statusOptions = [
   "EN ATTENTE",
   "CLOTURÉ",
   "PROBLÈME CLIENT",
-  "LIVRÉ",
+  "LIVRÉ SATIM",
   "ANNULÉ",
   "MASQUÉ"
 ];
@@ -83,7 +83,7 @@ const frenchToEnglishStatus = (frenchStatus: string): string => {
     "EN ATTENTE": "PENDING",
     "CLOTURÉ": "COMPLETED",
     "PROBLÈME CLIENT": "CLIENT_PROBLEM",
-    "LIVRÉ": "DELIVERED",
+    "LIVRÉ SATIM": "DELIVERED",
     "ANNULÉ": "CANCELLED",
     "EN ATTENTE D'APPROBATION (MASQUÉ)": "HIDDEN_PENDING_APPROVAL",
     "MASQUÉ": "HIDDEN"
