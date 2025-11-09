@@ -1394,7 +1394,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
           )}
 
           {/* TPE Information - Show for intervention and consumable tickets only */}
-          {(type === "INTERVENTION" || type === "CONSOMMABLE") && (
+          {(type === "INTERVENTION" || type === "CONSOMMABLE" || type === "INSTALLATION" || type === "REPLACEMENT") && (
             <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-lg border">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
@@ -1402,7 +1402,7 @@ export function TicketDetailsButton({ ticket, onSave, onClose }: Props) {
                 </div>
                 TPE
               </h3>
-              {(type === "INTERVENTION" || type === "CONSOMMABLE") && (
+              {(type === "INTERVENTION" || type === "CONSOMMABLE" || type === "INSTALLATION" || type === "REPLACEMENT") && (
                 <>
                   <div className="grid gap-2 text-sm ml-12">
                     <div>
