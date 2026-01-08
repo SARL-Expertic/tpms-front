@@ -39,9 +39,16 @@ export const TickitColumns: ColumnDef<Ticket>[] = [
     cell: ({ row }) => {
       const status = row.original.status;
       const colorMap: Record<string, string> = {
-        "CLOTURÉ": "text-green-600 text-2xl",
-        "EN COURS": "text-orange-500",
-        "EN ATTENTE": "text-blue-500",
+         "CLOTURÉ": "text-green-600 text-2xl",
+  "EN COURS": "text-orange-500",
+  "EN ATTENTE": "text-blue-500",
+  "DEMANDÉ": "text-gray-500",
+  "ASSIGNÉ": "text-purple-500",
+  "EN ATTENTE D'APPROBATION (MASQUÉ)": "text-yellow-500",
+  "MASQUÉ": "text-gray-400",
+  "PROBLÈME CLIENT": "text-red-500",
+  "LIVRÉ SATIM": "text-green-500",
+  "ANNULÉ": "text-red-600"
       };
       return (
         <div className="flex items-center gap-2">
